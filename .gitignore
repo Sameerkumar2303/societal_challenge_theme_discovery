@@ -26,3 +26,4 @@ desktop.ini
 
 # Local Streamlit secrets
 .streamlit/secrets.toml
+
