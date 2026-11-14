@@ -759,7 +759,14 @@ with tab_comparison:
         if len(vague_df) > 0:
             regroup_counts = vague_df.groupby(['Theme', 'Theme_Title']).size().unstack(fill_value=0)
             st.dataframe(regroup_counts, use_container_width=True)
-            st.caption("The table demonstrates how unsupervised NLP reveals specific domain clusters within vague labels.")
+            st.caption("The table demonstrates how unsupervised NLP reveals specific domain clusters within vague catch-all labels.")
+        else:
+            top_themes = df['Theme'].value_counts().head(5).index.tolist()
+            subset_df = df[df['Theme'].isin(top_themes)]
+            if len(subset_df) > 0:
+                regroup_counts = subset_df.groupby(['Theme', 'Theme_Title']).size().unstack(fill_value=0)
+                st.dataframe(regroup_counts, use_container_width=True)
+                st.caption("Cross-tabulation of discovered AI themes against top source themes.")
 
     st.markdown("---")
     st.markdown("#### 🚨 Responsible AI & Ethical Use Disclaimers")

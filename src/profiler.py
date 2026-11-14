@@ -133,8 +133,16 @@ class ClusterProfiler:
         Assesses institutional representation bias, domain skew, and outlines responsible-use considerations.
         """
         total = len(df)
+        if total == 0:
+            return {'findings': [], 'top_organization': 'N/A', 'top_org_percentage': 0, 'software_percentage': 0, 'hardware_percentage': 0, 'cluster_proportions': {}}
+            
         org_counts = df['Organization'].value_counts()
-        top_org_pct = round((org_counts.iloc[0] / total) * 100, 1)
+        if len(org_counts) > 0:
+            top_org = str(org_counts.index[0])
+            top_org_pct = round((org_counts.iloc[0] / total) * 100, 1)
+        else:
+            top_org = 'General / Crowdsourced'
+            top_org_pct = 0.0
         
         cat_counts = df['Category'].value_counts()
         sw_pct = round((cat_counts.get('Software', 0) / total) * 100, 1)
@@ -145,7 +153,7 @@ class ClusterProfiler:
         cluster_percentages = {f'Cluster {k + 1}': round((count / total) * 100, 1) for k, count in cluster_dist.items()}
         
         findings = [
-            f"Institutional Representation: '{org_counts.index[0]}' represents {top_org_pct}% of all submissions, indicating notable institutional concentration.",
+            f"Institutional Representation: '{top_org}' represents {top_org_pct}% of all submissions, indicating notable institutional concentration.",
             f"Category Skew: The corpus is {sw_pct}% Software and {hw_pct}% Hardware. Linguistic features inherently emphasize software/algorithmic terminology.",
             f"Cluster Sizing: Largest cluster holds {max(cluster_percentages.values())}% of submissions while smallest holds {min(cluster_percentages.values())}%.",
             "Lexical Polysemy: Words like 'monitoring', 'detection', and 'analytics' span multiple societal sectors and require contextual disambiguation.",
@@ -154,7 +162,7 @@ class ClusterProfiler:
         
         return {
             'findings': findings,
-            'top_organization': org_counts.index[0],
+            'top_organization': top_org,
             'top_org_percentage': top_org_pct,
             'software_percentage': sw_pct,
             'hardware_percentage': hw_pct,

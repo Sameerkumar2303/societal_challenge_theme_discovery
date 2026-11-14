@@ -2,34 +2,24 @@
 Societal Challenge Theme Discovery - Preprocessing Module
 Handles variable relevance, text normalization, domain-specific stop word filtering,
 numerical feature engineering, standardization, and categorical encoding.
+Includes flexible column auto-detection for custom datasets.
 """
 
 import re
 import string
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 
-# Domain boilerplate words commonly found in hackathon problem statements
+# Domain boilerplate words commonly found in hackathon & civic problem statements
 DEFAULT_DOMAIN_STOPWORDS = {
-    'background', 'description', 'expected', 'solution', 'solutions', 'system', 'systems',
-    'problem', 'problems', 'statement', 'statements', 'objective', 'objectives', 'proposed',
-    'developed', 'using', 'based', 'platform', 'provide', 'provides', 'support', 'supports',
-    'need', 'needs', 'require', 'requires', 'required', 'requirement', 'requirements',
-    'including', 'various', 'across', 'also', 'order', 'features', 'capable', 'capability',
-    'outcomes', 'detailed', 'currently', 'existing', 'challenges', 'presently', 'aims',
-    'seeks', 'must', 'participants', 'should', 'would', 'could', 'team', 'teams',
-    'develop', 'develops', 'development', 'design', 'designing', 'india', 'indian',
-    'real', 'time', 'student', 'students', 'innovation', 'innovative', 'data', 'information',
-    'model', 'models', 'high', 'low', 'conditions', 'source', 'sources', 'management',
-    'process', 'processes', 'new', 'used', 'help', 'helps', 'helping', 'like', 'user',
-    'users', 'application', 'applications', 'technology', 'technologies', 'tools', 'tool',
-    'different', 'efficient', 'effective', 'better', 'enable', 'enables', 'ensure', 'ensures',
-    'level', 'levels', 'area', 'areas', 'project', 'projects', 'create', 'make', 'give',
-    'given', 'work', 'working', 'available', 'way', 'ways', 'method', 'methods', 'approach',
-    'approaches', 'specific', 'overall', 'type', 'types', 'many', 'good', 'well',
-    'etc', 'sector', 'sectors', 'ideas', 'idea', 'rich', 'poor', 'aspects', 'aspect',
-    'point', 'points', 'field', 'fields', 'part', 'parts', 'key', 'main', 'primary'
+    'background', 'description', 'expected', 'solution', 'system', 'problem',
+    'statement', 'objective', 'proposed', 'developed', 'using', 'based',
+    'platform', 'provide', 'support', 'need', 'needs', 'require', 'required',
+    'including', 'various', 'across', 'also', 'order', 'features', 'capable',
+    'outcomes', 'detailed', 'currently', 'existing', 'challenges', 'presently',
+    'aims', 'seeks', 'must', 'participants', 'should', 'would', 'could', 'team',
+    'teams', 'develop', 'development', 'design', 'india', 'indian', 'real', 'time'
 }
 
 STANDARD_STOPWORDS = {
@@ -60,7 +50,7 @@ def clean_text(text: str, remove_domain_stopwords: bool = True) -> str:
     # 2. Remove URLs
     text = re.sub(r'https?://\S+|www\.\S+', ' ', text)
     
-    # 3. Remove punctuation and special characters
+    # 3. Remove punctuation and non-alpha characters
     text = re.sub(r'[^a-zA-Z\s]', ' ', text)
     
     # 4. Tokenize by whitespace
@@ -73,49 +63,121 @@ def clean_text(text: str, remove_domain_stopwords: bool = True) -> str:
     return " ".join(cleaned_tokens)
 
 class ProblemDataPipeline:
-    """End-to-end preprocessing pipeline for problem statements."""
+    """End-to-end preprocessing pipeline for problem statements and text records."""
     def __init__(self, remove_domain_stopwords: bool = True):
         self.remove_domain_stopwords = remove_domain_stopwords
         self.scaler = StandardScaler()
         self.numerical_cols = []
-        self.categorical_cols = []
         self.raw_df = None
         self.processed_df = None
 
+    def _detect_and_standardize_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Intelligently maps varying column names to canonical schema."""
+        col_map = {}
+        cols_lower = {c.strip().lower(): c for c in df.columns}
+        
+        # ID column aliases
+        id_aliases = ['problem statement id', 'id', 'statement id', 'issue id', 'ticket id', 'index', 'ps_id', 'task id', 'ps number', 's.no.']
+        for alias in id_aliases:
+            if alias in cols_lower:
+                col_map[cols_lower[alias]] = 'Problem Statement ID'
+                break
+                
+        # Title column aliases
+        title_aliases = ['problem statement title', 'title', 'subject', 'headline', 'summary', 'name', 'problem title']
+        for alias in title_aliases:
+            if alias in cols_lower:
+                col_map[cols_lower[alias]] = 'Problem Statement Title'
+                break
+                
+        # Description column aliases
+        desc_aliases = ['description', 'desc', 'text', 'content', 'body', 'problem description', 'details', 'issue description']
+        for alias in desc_aliases:
+            if alias in cols_lower:
+                col_map[cols_lower[alias]] = 'Description'
+                break
+
+        # Organization column aliases
+        org_aliases = ['organization', 'org', 'ministry', 'agency', 'company', 'source', 'department']
+        for alias in org_aliases:
+            if alias in cols_lower and cols_lower[alias] not in col_map:
+                col_map[cols_lower[alias]] = 'Organization'
+                break
+
+        # Category column aliases (Software / Hardware / Project Type)
+        cat_aliases = ['category', 'project type', 'tech category', 'mode', 'type']
+        for alias in cat_aliases:
+            if alias in cols_lower and cols_lower[alias] not in col_map:
+                col_map[cols_lower[alias]] = 'Category'
+                break
+
+        # Theme column aliases (Societal Theme / Domain Bucket / Sector)
+        theme_aliases = ['domain bucket', 'theme', 'domain', 'sector', 'topic', 'area', 'bucket', 'label']
+        for alias in theme_aliases:
+            if alias in cols_lower and cols_lower[alias] not in col_map:
+                col_map[cols_lower[alias]] = 'Theme'
+                break
+
+        df = df.rename(columns=col_map)
+        
+        # Ensure mandatory canonical columns exist
+        if 'Problem Statement ID' not in df.columns:
+            df['Problem Statement ID'] = np.arange(1, len(df) + 1)
+        if 'Problem Statement Title' not in df.columns:
+            if 'Description' in df.columns:
+                df['Problem Statement Title'] = df['Description'].apply(lambda x: " ".join(str(x).split()[:7]) + "..." if pd.notna(x) else "Untitled Statement")
+            else:
+                df['Problem Statement Title'] = "Problem Statement " + df['Problem Statement ID'].astype(str)
+        if 'Description' not in df.columns:
+            df['Description'] = df['Problem Statement Title']
+        if 'Organization' not in df.columns:
+            df['Organization'] = 'General / Crowdsourced'
+        if 'Department' not in df.columns:
+            df['Department'] = df['Organization']
+        if 'Category' not in df.columns:
+            df['Category'] = 'Software'
+        if 'Theme' not in df.columns:
+            df['Theme'] = 'General'
+            
+        return df
+
     def load_and_audit(self, filepath_or_buffer) -> pd.DataFrame:
         """Loads data, evaluates variable relevance, and handles missing values."""
+        if hasattr(filepath_or_buffer, 'seek'):
+            try:
+                filepath_or_buffer.seek(0)
+            except Exception:
+                pass
         df = pd.read_csv(filepath_or_buffer)
         self.raw_df = df.copy()
         
-        # Standardize column names
+        # Clean column whitespace and detect standard columns
         df.columns = [c.strip() for c in df.columns]
+        df = self._detect_and_standardize_columns(df)
         
         # Fill missing values gracefully
-        text_cols = ['Problem Statement Title', 'Description']
-        for col in text_cols:
-            if col in df.columns:
-                df[col] = df[col].fillna('')
-        
-        if 'Theme' in df.columns:
-            df['Theme'] = df['Theme'].fillna('Uncategorized')
-        if 'Category' in df.columns:
-            df['Category'] = df['Category'].fillna('Unknown')
-        if 'Organization' in df.columns:
-            df['Organization'] = df['Organization'].fillna('Unknown')
-        if 'Department' in df.columns:
-            df['Department'] = df['Department'].fillna('Unknown')
+        df['Problem Statement Title'] = df['Problem Statement Title'].fillna('')
+        df['Description'] = df['Description'].fillna('')
+        df['Theme'] = df['Theme'].fillna('Uncategorized')
+        df['Category'] = df['Category'].fillna('Unknown')
+        df['Organization'] = df['Organization'].fillna('Unknown')
+        df['Department'] = df['Department'].fillna('Unknown')
             
         # Drop columns with extreme missingness (>80%) that offer no clustering signal
         sparse_cols = ['Youtube Link', 'Dataset Link', 'Contact info']
         existing_sparse = [c for c in sparse_cols if c in df.columns]
-        df = df.drop(columns=existing_sparse)
+        if existing_sparse:
+            df = df.drop(columns=existing_sparse)
         
         # Combine Title and Description for rich semantic representation
-        df['Combined_Raw_Text'] = df['Problem Statement Title'] + ". " + df['Description']
+        if df['Description'].equals(df['Problem Statement Title']):
+            df['Combined_Raw_Text'] = df['Problem Statement Title'].astype(str)
+        else:
+            df['Combined_Raw_Text'] = df['Problem Statement Title'].astype(str) + ". " + df['Description'].astype(str)
         
         # Feature Engineering: Numerical properties
-        df['title_word_count'] = df['Problem Statement Title'].apply(lambda x: len(x.split()))
-        df['desc_word_count'] = df['Description'].apply(lambda x: len(x.split()))
+        df['title_word_count'] = df['Problem Statement Title'].astype(str).apply(lambda x: len(x.split()))
+        df['desc_word_count'] = df['Description'].astype(str).apply(lambda x: len(x.split()))
         df['char_count'] = df['Combined_Raw_Text'].apply(len)
         df['avg_word_length'] = df['Combined_Raw_Text'].apply(
             lambda x: np.mean([len(w) for w in x.split()]) if len(x.split()) > 0 else 0
@@ -127,8 +189,7 @@ class ProblemDataPipeline:
         )
         
         # Category binary encoding (Software=1, Hardware=0)
-        if 'Category' in df.columns:
-            df['is_software'] = df['Category'].apply(lambda x: 1 if str(x).lower().strip() == 'software' else 0)
+        df['is_software'] = df['Category'].apply(lambda x: 1 if str(x).lower().strip() == 'software' else 0)
         
         # Numerical feature scaling
         self.numerical_cols = ['title_word_count', 'desc_word_count', 'char_count', 'avg_word_length']
@@ -150,7 +211,6 @@ class ProblemDataPipeline:
             'dropped_columns': [c for c in self.raw_df.columns if c not in self.processed_df.columns],
             'categories': self.processed_df['Category'].value_counts().to_dict() if 'Category' in self.processed_df else {},
             'organizations_count': self.processed_df['Organization'].nunique() if 'Organization' in self.processed_df else 0,
-            'avg_raw_words': round(self.processed_df['desc_word_count'].mean(), 1),
-            'avg_cleaned_words': round(self.processed_df['Cleaned_Text'].apply(lambda x: len(x.split())).mean(), 1)
+            'avg_raw_words': round(float(self.processed_df['desc_word_count'].mean()), 1),
+            'avg_cleaned_words': round(float(self.processed_df['Cleaned_Text'].apply(lambda x: len(x.split())).mean()), 1)
         }
-
