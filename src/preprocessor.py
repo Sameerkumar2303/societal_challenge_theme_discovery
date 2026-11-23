@@ -143,12 +143,15 @@ class ProblemDataPipeline:
 
     def load_and_audit(self, filepath_or_buffer) -> pd.DataFrame:
         """Loads data, evaluates variable relevance, and handles missing values."""
-        if hasattr(filepath_or_buffer, 'seek'):
-            try:
-                filepath_or_buffer.seek(0)
-            except Exception:
-                pass
-        df = pd.read_csv(filepath_or_buffer)
+        if isinstance(filepath_or_buffer, pd.DataFrame):
+            df = filepath_or_buffer.copy()
+        else:
+            if hasattr(filepath_or_buffer, 'seek'):
+                try:
+                    filepath_or_buffer.seek(0)
+                except Exception:
+                    pass
+            df = pd.read_csv(filepath_or_buffer)
         self.raw_df = df.copy()
         
         # Clean column whitespace and detect standard columns

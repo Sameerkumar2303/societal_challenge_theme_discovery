@@ -263,6 +263,13 @@ from src.clustering import ClusteringWorkflow
 from src.hierarchical import HierarchicalWorkflow
 from src.dim_reduction import PCAVisualizer
 from src.profiler import ClusterProfiler
+from src.database import ChallengeDatabase
+from src.live_classifier import LiveChallengeClassifier
+
+# Initialize persistent SQLite store
+db = ChallengeDatabase()
+if db.is_empty():
+    db.seed_from_csv()
 
 # ==========================================
 # SIDEBAR CONTROLS
@@ -283,16 +290,48 @@ with st.sidebar:
     st.divider()
     
     # 1. Dataset Selection
-    st.subheader("1. Data Source")
-    default_data_path = os.path.join(BASE_DIR, "data", "problem_statements.csv")
-    uploaded_file = st.file_uploader("Upload Custom CSV (Optional)", type=['csv'])
+    st.subheader("1. Data Storage & Source")
+    db_stats = db.get_stats()
     
-    if uploaded_file is not None:
-        data_source = uploaded_file
-        st.success("Custom CSV uploaded!")
+    storage_mode = st.radio(
+        "Data Engine",
+        ["🟢 Live SQLite DB (Dynamic)", "📁 Custom CSV Upload"],
+        index=0,
+        help="The live SQLite database persistently stores all default and crowdsourced challenge submissions."
+    )
+    
+    if storage_mode == "🟢 Live SQLite DB (Dynamic)":
+        data_source = db.get_all_problems()
+        st.markdown(f"""
+        <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid #10b981; border-radius: 8px; padding: 0.6rem 0.8rem; margin: 0.5rem 0;">
+            <div style="color: #34d399; font-weight: 700; font-size: 0.82rem;">🟢 Live SQLite Connected</div>
+            <div style="color: #cbd5e1; font-size: 0.76rem;"><b>{db_stats['total_statements']}</b> Total Records ({db_stats['crowdsourced_count']} Crowdsourced)</div>
+        </div>
+        """, unsafe_allow_html=True)
+        col_db_a, col_db_b = st.columns(2)
+        with col_db_a:
+            if st.button("🔄 Sync & Recluster", use_container_width=True, help="Re-runs unsupervised clustering with all new database submissions"):
+                st.cache_data.clear()
+                st.rerun()
+        with col_db_b:
+            if st.button("⚠️ Reset to 231", use_container_width=True, help="Resets database back to default 231 statements"):
+                db.reset_database()
+                st.cache_data.clear()
+                st.rerun()
     else:
-        data_source = default_data_path
-        st.caption("Using default: **Smart India Hackathon Dataset (231 Statements)**")
+        default_data_path = os.path.join(BASE_DIR, "data", "problem_statements.csv")
+        uploaded_file = st.file_uploader("Upload Custom CSV (Optional)", type=['csv'])
+        if uploaded_file is not None:
+            data_source = uploaded_file
+            st.success("Custom CSV uploaded!")
+            if st.button("📥 Import into Live Database", use_container_width=True):
+                imported = db.seed_from_csv(uploaded_file, force=False)
+                st.success(f"Imported {imported} records!")
+                st.cache_data.clear()
+                st.rerun()
+        else:
+            data_source = default_data_path
+            st.caption("Using default: **Smart India Hackathon Dataset (231 Statements)**")
 
     st.divider()
 
@@ -403,7 +442,11 @@ def run_full_pipeline(source, remove_stops, max_feats, metric, k_val, max_k_eval
         'exemplars': exemplars,
         'crosstabs': crosstabs,
         'bias_audit': bias_audit,
-        'feature_names': feature_names
+        'feature_names': feature_names,
+        'vectorizer': vectorizer,
+        'pca_viz': pca_viz,
+        'X': X,
+        'centroids': centroids
     }
 
 with st.spinner("Analyzing problem statements with AI clustering pipeline..."):
@@ -416,6 +459,22 @@ df = results['df']
 profiles = results['profiles']
 exemplars = results['exemplars']
 summary = results['summary']
+vectorizer = results['vectorizer']
+pca_viz = results['pca_viz']
+X = results['X']
+centroids = results['centroids']
+
+# Initialize Real-Time Live Inference Engine
+live_classifier = LiveChallengeClassifier(
+    vectorizer=vectorizer,
+    cluster_centers=centroids,
+    profiles=profiles,
+    pca_model=pca_viz,
+    X_existing=X,
+    df_existing=df,
+    distance_metric=metric_key,
+    remove_domain_stopwords=remove_domain_stops
+)
 
 # ==========================================
 # HERO BANNER
@@ -453,12 +512,13 @@ with st.expander("💡 **New here? Click to read the 60-Second Quick Start Guide
 col_m1, col_m2, col_m3, col_m4, col_m5 = st.columns(5)
 
 with col_m1:
+    cs_badge = f"{db_stats['crowdsourced_count']} Live Crowdsourced" if db_stats['crowdsourced_count'] > 0 else "Crowdsourced submissions"
     st.markdown(f"""
     <div class="stat-card">
         <div class="stat-icon">📄</div>
         <div class="stat-label">Total Challenges</div>
         <div class="stat-value">{len(df):,}</div>
-        <div class="stat-caption">Crowdsourced submissions</div>
+        <div class="stat-caption">{cs_badge}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -512,17 +572,166 @@ st.write("")
 # ==========================================
 # MAIN APPLICATION TABS
 # ==========================================
-tab_showcase, tab_search, tab_galaxy, tab_comparison, tab_science, tab_export = st.tabs([
+tab_live, tab_showcase, tab_search, tab_galaxy, tab_comparison, tab_science, tab_export, tab_api = st.tabs([
+    "🚀 Live AI Classifier & Crowdsource",
     "🌟 Discovered Themes",
     "🔍 Problem Search & Inspector",
     "🌌 Theme Galaxy (2D/3D Map)",
     "⚖️ AI vs Human Tags & Bias",
     "🔬 Data Science & Validation",
-    "📥 Executive Summary & Export"
+    "📥 Executive Summary & Export",
+    "⚡ REST API & Developers"
 ])
 
 # ------------------------------------------
-# TAB 1: DISCOVERED THEMES SHOWCASE
+# TAB 1: LIVE AI CLASSIFIER & CROWDSOURCE PORTAL
+# ------------------------------------------
+with tab_live:
+    st.markdown("""
+    <div class="explainer-card">
+        <div class="explainer-title">🚀 Real-Time Challenge Crowdsourcing & Live AI Inference</div>
+        <div class="explainer-text">
+            This module turns the platform into a <b>dynamic civic intelligence engine</b>. 
+            Submit any new challenge statement or problem idea below. The AI extracts linguistic n-gram features on the fly, 
+            calculates metric distances to all discovered cluster centroids, finds matching national challenges, 
+            and dynamically projects your submission into 3D PCA coordinates.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Initialize session state for classified item
+    if 'last_classified' not in st.session_state:
+        st.session_state['last_classified'] = None
+
+    col_form, col_res = st.columns([1.1, 1], gap="large")
+
+    with col_form:
+        st.markdown("#### 📝 Submit or Test a Challenge")
+        with st.form("crowdsource_submission_form"):
+            user_title = st.text_input(
+                "Problem Statement Title *",
+                value="Autonomous Drone-based Crop Health & Soil Moisture Monitoring",
+                placeholder="e.g. AI-driven Traffic Congestion Management..."
+            )
+            user_desc = st.text_area(
+                "Full Problem Description & Societal Context *",
+                value="Farmers in rural districts face heavy crop losses due to delayed pest detection and erratic monsoon rainfall. We propose an autonomous drone platform equipped with multispectral imaging and computer vision edge analytics to monitor crop health, detect pest outbreaks early, and map soil moisture levels in real-time.",
+                height=150,
+                placeholder="Describe the background problem, root causes, affected community, and required technology..."
+            )
+            
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                user_org = st.text_input("Ministry / Body", value="Ministry of Agriculture & Farmers Welfare")
+                user_dept = st.text_input("Department / Wing", value="Department of Agriculture & Farmers Welfare")
+            with col_f2:
+                user_cat = st.selectbox("Technical Modality", ["Software", "Hardware", "Software / Hardware"], index=0)
+                user_submitter = st.text_input("Submitted By", value="Citizen Innovator")
+
+            st.write("")
+            col_btn1, col_btn2 = st.columns(2)
+            with col_btn1:
+                btn_test = st.form_submit_button("✨ Discover Theme (Real-Time)", use_container_width=True)
+            with col_btn2:
+                btn_save = st.form_submit_button("💾 Save to SQLite Database", use_container_width=True)
+
+        if btn_test or btn_save:
+            if not user_title.strip() or not user_desc.strip():
+                st.error("⚠️ Please provide both a Challenge Title and Description.")
+            else:
+                with st.spinner("Executing real-time NLP inference..."):
+                    inf_res = live_classifier.classify(user_title, user_desc, top_k_similar=3)
+                    inf_res['title'] = user_title
+                    inf_res['organization'] = user_org
+                    inf_res['category'] = user_cat
+                    st.session_state['last_classified'] = inf_res
+
+                    if btn_save:
+                        new_record = db.add_problem(
+                            title=user_title,
+                            description=user_desc,
+                            organization=user_org,
+                            department=user_dept,
+                            category=user_cat,
+                            theme=inf_res['theme_title'],
+                            submitted_by=user_submitter
+                        )
+                        st.success(f"✅ Saved to SQLite Database as **[{new_record['ps_id']}]**! Click 'Sync & Recluster' in the sidebar to re-fit clusters.")
+                        st.cache_data.clear()
+
+    with col_res:
+        st.markdown("#### 🎯 Real-Time AI Theme Prediction")
+        last = st.session_state.get('last_classified')
+        if last is None:
+            st.info("👈 Enter a problem statement on the left and click **'Discover Theme (Real-Time)'** to preview the AI's thematic classification.")
+        else:
+            b_icon = last.get('theme_icon', '🌐')
+            b_theme = last.get('theme_title', 'Discovered Domain')
+            b_cid = last.get('assigned_cluster_id', 0) + 1
+            b_conf = last.get('confidence_score', 80.0)
+
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #1e1b4b 0%, #1e3a8a 100%); border: 2px solid #3b82f6; border-radius: 14px; padding: 1.4rem; margin-bottom: 1rem; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.25);">
+                <div style="font-size: 0.78rem; font-weight: 700; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem;">
+                    Identified Societal Mission
+                </div>
+                <div style="font-size: 1.7rem; font-weight: 800; color: #ffffff; margin-bottom: 0.5rem; line-height: 1.2;">
+                    {b_icon} Theme {b_cid}: {b_theme}
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-top: 0.8rem;">
+                    <div style="background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; border-radius: 9999px; padding: 0.3rem 0.8rem; font-size: 0.85rem; font-weight: 700; color: #34d399;">
+                        ⚡ {b_conf}% AI Match Confidence
+                    </div>
+                    <div style="background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; border-radius: 9999px; padding: 0.3rem 0.8rem; font-size: 0.8rem; color: #93c5fd;">
+                        📍 PCA 3D: ({last['pca_point']['x']:.2f}, {last['pca_point']['y']:.2f}, {last['pca_point']['z']:.2f})
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # Matched characteristic vocabulary
+            st.markdown("##### 🔑 Characteristic Vocabulary Matches")
+            kw_chips = " ".join([
+                f"<span style='background: #1e293b; border: 1px solid #475569; color: #38bdf8; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.8rem; margin-right: 0.4rem; display: inline-block; margin-bottom: 0.4rem;'><b>{m['term']}</b> (w: {m['query_weight']})</span>"
+                for m in last.get('matched_keywords', [])
+            ])
+            st.markdown(kw_chips if kw_chips else "*(Generic terminology)*", unsafe_allow_html=True)
+
+            # Nearest National Challenges
+            st.markdown("##### 🏛️ Most Semantically Similar Challenges in Database")
+            for c in last.get('nearest_challenges', []):
+                st.markdown(f"""
+                <div style="background: #141b2d; border-left: 3px solid #3b82f6; padding: 0.6rem 0.85rem; margin-bottom: 0.5rem; border-radius: 0 8px 8px 0; border-top: 1px solid #1e293b; border-right: 1px solid #1e293b; border-bottom: 1px solid #1e293b;">
+                    <div style="font-size: 0.74rem; color: #94a3b8; font-weight: 600;">{c['ps_id']} • {c['organization']} • <span style="color: #38bdf8; font-weight: 700;">{c['similarity_pct']}% Similarity</span></div>
+                    <div style="font-size: 0.86rem; color: #f1f5f9; font-weight: 600; margin-top: 0.15rem;">{c['title']}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # Submissions table
+    st.markdown("---")
+    st.markdown("#### 📂 Persistent Crowdsourced Submissions in SQLite")
+    all_db_records = db.get_all_problems(include_crowdsourced=True)
+    crowdsourced_only = all_db_records[all_db_records['is_crowdsourced'] == 1]
+    
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
+        st.metric("Total Challenges in DB", len(all_db_records))
+    with col_t2:
+        st.metric("Crowdsourced Submissions", len(crowdsourced_only))
+    with col_t3:
+        st.metric("Storage Status", "🟢 SQLite Active")
+
+    if len(crowdsourced_only) > 0:
+        st.dataframe(
+            crowdsourced_only[['Problem Statement ID', 'Problem Statement Title', 'Organization', 'Category', 'Theme', 'created_at', 'status']],
+            use_container_width=True,
+            hide_index=True
+        )
+    else:
+        st.info("💡 No crowdsourced submissions yet. Use the form above to submit your first challenge into the live database!")
+
+# ------------------------------------------
+# TAB 2: DISCOVERED THEMES SHOWCASE
 # ------------------------------------------
 with tab_showcase:
     st.markdown("""
@@ -649,7 +858,7 @@ with tab_search:
         st.info(f"Showing first 15 of {len(filtered_view)} results. Refine search criteria for narrower lookups.")
 
 # ------------------------------------------
-# TAB 3: THEME GALAXY (2D & 3D PCA MAP)
+# TAB 4: THEME GALAXY (2D & 3D PCA MAP)
 # ------------------------------------------
 with tab_galaxy:
     st.markdown("""
@@ -661,6 +870,15 @@ with tab_galaxy:
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    if st.session_state.get('last_classified'):
+        last_item = st.session_state['last_classified']
+        st.markdown(f"""
+        <div style="background: rgba(251, 191, 36, 0.15); border: 1px solid #fbbf24; border-radius: 8px; padding: 0.5rem 0.9rem; margin-bottom: 0.8rem;">
+            <span style="color: #fbbf24; font-weight: 700; font-size: 0.86rem;">⭐ Live Submission Plotted:</span> 
+            <span style="color: #f1f5f9; font-size: 0.84rem;">"{last_item['title']}" is mapped in real-time onto this geometric space!</span>
+        </div>
+        """, unsafe_allow_html=True)
 
     col_g1, col_g2 = st.columns([3, 1])
     with col_g2:
@@ -686,6 +904,17 @@ with tab_galaxy:
                     textposition="top center",
                     name="Theme Centers"
                 ))
+            if st.session_state.get('last_classified'):
+                last_pt = st.session_state['last_classified']
+                fig_galaxy.add_trace(go.Scatter(
+                    x=[last_pt['pca_point']['x']],
+                    y=[last_pt['pca_point']['y']],
+                    mode='markers+text',
+                    marker=dict(symbol='star', size=22, color='#fbbf24', line=dict(width=2, color='white')),
+                    text=[f"⭐ Your Live Submission: {last_pt['title'][:25]}..."],
+                    textposition="top center",
+                    name="⭐ Your Live Submission"
+                ))
             fig_galaxy.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -704,6 +933,18 @@ with tab_galaxy:
                 title="3D Interactive Manifold of Societal Challenge Themes",
                 color_discrete_sequence=px.colors.qualitative.Bold
             )
+            if st.session_state.get('last_classified'):
+                last_pt = st.session_state['last_classified']
+                fig_galaxy3d.add_trace(go.Scatter3d(
+                    x=[last_pt['pca_point']['x']],
+                    y=[last_pt['pca_point']['y']],
+                    z=[last_pt['pca_point']['z']],
+                    mode='markers+text',
+                    marker=dict(symbol='diamond', size=14, color='#fbbf24', line=dict(width=2, color='white')),
+                    text=[f"⭐ Your Live Submission: {last_pt['title'][:25]}..."],
+                    textposition="top center",
+                    name="⭐ Your Live Submission"
+                ))
             fig_galaxy3d.update_layout(
                 template="plotly_dark",
                 paper_bgcolor="rgba(0,0,0,0)",
@@ -920,3 +1161,58 @@ with tab_export:
             mime="text/markdown",
             use_container_width=True
         )
+
+# ------------------------------------------
+# TAB 8: REST API & DEVELOPERS
+# ------------------------------------------
+with tab_api:
+    st.markdown("""
+    <div class="explainer-card">
+        <div class="explainer-title">⚡ Dynamic RESTful API Integration</div>
+        <div class="explainer-text">
+            This platform includes a complete <b>FastAPI</b> backend service (<code>api.py</code>) enabling civic portals, mobile applications, and developers to submit challenges, query the SQLite database, and run real-time AI thematic inference programmatically.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_api1, col_api2 = st.columns(2)
+    with col_api1:
+        st.markdown("#### 📡 Available REST Endpoints")
+        st.markdown("""
+| HTTP Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | Service health & total record counts |
+| `GET` | `/api/stats` | Live SQLite database metrics & distributions |
+| `GET` | `/api/problems` | List problem statements with search & filters |
+| `POST` | `/api/problems` | Add a new crowdsourced challenge to SQLite |
+| `POST` | `/api/classify` | Real-time AI classification & similarity matching |
+| `POST` | `/api/crowdsource` | Classify AND save challenge in a single call |
+| `GET` | `/api/themes` | Discovered cluster profiles & centroid keywords |
+        """)
+        
+        st.markdown("#### 💻 How to Run the REST API")
+        st.code("""# Start FastAPI server on port 8000
+uvicorn api:app --reload --port 8000
+
+# Open interactive Swagger UI documentation:
+# http://127.0.0.1:8000/docs""", language="bash")
+
+    with col_api2:
+        st.markdown("#### 🧪 Interactive Developer Examples")
+        st.markdown("**1. Python `requests` example:**")
+        st.code("""import requests
+
+payload = {
+    "title": "Smart Solar Microgrid Fault Detection using IoT",
+    "description": "Rural microgrids suffer frequent blackout delays due to manual line inspection. We develop edge sensors to isolate line faults automatically.",
+    "category": "Hardware"
+}
+
+# Real-time AI classification endpoint
+response = requests.post("http://127.0.0.1:8000/api/classify", json=payload)
+print(response.json())""", language="python")
+
+        st.markdown("**2. cURL Terminal command:**")
+        st.code("""curl -X POST "http://127.0.0.1:8000/api/classify" \\
+     -H "Content-Type: application/json" \\
+     -d '{"title": "Autonomous Crop Disease Detection", "description": "Drone imagery to identify pest attacks on cotton crops."}'""", language="bash")
