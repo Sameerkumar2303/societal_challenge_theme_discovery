@@ -84,7 +84,7 @@ societal_challenge_theme_discovery/
 │   ├── dim_reduction.py            # 2D/3D PCA & loading vectors
 │   └── profiler.py                 # Centroid top features, exemplar discovery, bias audit
 │
-├── app.py                          # Full-featured Streamlit interactive web application
+├── app.py                          # Multi-page interactive web application with living aurora & glassmorphic UI
 ├── run_app.bat                     # Windows one-click launcher
 ├── requirements.txt                # Python package dependencies
 └── README.md                       # Project documentation
