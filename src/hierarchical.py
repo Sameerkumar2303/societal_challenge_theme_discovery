@@ -55,6 +55,7 @@ class HierarchicalWorkflow:
         return {
             'adjusted_rand_index': round(float(ari), 4),
             'normalized_mutual_info': round(float(nmi), 4),
-            'contingency_table': contingency
+            'contingency_table': contingency,
+            'contingency_matrix': contingency
         }
 

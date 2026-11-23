@@ -1069,7 +1069,9 @@ elif selected_page == "🔬 Science & Validation":
         - **Hierarchical vs K-Means NMI:** `{results['hier_comp']['normalized_mutual_info']:.4f}`
         """)
         st.write("**Contingency Cross-Tabulation:**")
-        st.dataframe(results['hier_comp']['contingency_matrix'], use_container_width=True)
+        contingency_df = results['hier_comp'].get('contingency_matrix', results['hier_comp'].get('contingency_table'))
+        if contingency_df is not None:
+            st.dataframe(contingency_df, use_container_width=True)
         st.caption("High concordance between partition and hierarchical clustering validates natural cluster emergence.")
         st.markdown('</div>', unsafe_allow_html=True)
 
