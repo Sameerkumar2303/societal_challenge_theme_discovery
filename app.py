@@ -1,7 +1,8 @@
 """
 Societal Challenge Theme Discovery from Crowdsourced Problem Statements
 Multi-Page Interactive AI Discovery Platform powered by Streamlit, Scikit-Learn, and Plotly.
-Features high-contrast glassmorphism, animated ambient mesh gradients, neon glows, and hover-enlarge graphs.
+Features high-contrast glassmorphism, animated ambient mesh gradients, neon glows, hover-enlarge graphs,
+and dynamic Dark / Light mode switching on the top right.
 """
 
 import os
@@ -24,74 +25,107 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Styling (Living Aurora Ambient Mesh, Glassmorphism, Neon Glows & Hover Physics)
-st.markdown("""
+# Detect current theme state (Dark by default)
+if "theme_toggle_key" not in st.session_state:
+    st.session_state["theme_toggle_key"] = "🌙 Dark"
+is_dark = "Dark" in st.session_state["theme_toggle_key"]
+
+# Plotly & Matplotlib theme configuration variables
+plotly_template = "plotly_dark" if is_dark else "plotly_white"
+plotly_paper_bg = "rgba(0,0,0,0)"
+plotly_plot_bg = "rgba(15, 23, 42, 0.6)" if is_dark else "rgba(248, 250, 252, 0.85)"
+plotly_font_color = "#e2e8f0" if is_dark else "#0f172a"
+dend_bg = '#0f172a' if is_dark else '#ffffff'
+dend_spine_color = '#334155' if is_dark else '#cbd5e1'
+dend_tick_color = '#94a3b8' if is_dark else '#334155'
+
+# Custom Styling (Living Aurora Ambient Mesh, Glassmorphism, Neon Glows & Dual-Theme System)
+st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
     
-    html, body, [class*="css"] {
+    html, body, [class*="css"] {{
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
+    }}
     
     /* 1. Shifting Ambient Aurora Mesh Background */
-    @keyframes auroraMesh {
-        0% {
-            background-position: 0% 50%;
-        }
-        50% {
-            background-position: 100% 50%;
-        }
-        100% {
-            background-position: 0% 50%;
-        }
-    }
+    @keyframes auroraMeshDark {{
+        0% {{ background-position: 0% 50%; }}
+        50% {{ background-position: 100% 50%; }}
+        100% {{ background-position: 0% 50%; }}
+    }}
+    @keyframes auroraMeshLight {{
+        0% {{ background-position: 0% 50%; }}
+        50% {{ background-position: 100% 50%; }}
+        100% {{ background-position: 0% 50%; }}
+    }}
 
-    .stApp {
-        background: linear-gradient(135deg, #070b14 0%, #0c162d 25%, #131d3d 50%, #0d172e 75%, #060912 100%) !important;
+    .stApp {{
+        background: {
+            "linear-gradient(135deg, #070b14 0%, #0c162d 25%, #131d3d 50%, #0d172e 75%, #060912 100%) !important;"
+            if is_dark else
+            "linear-gradient(135deg, #f8fafc 0%, #eef2f6 25%, #e2e8f0 50%, #eef2f6 75%, #f8fafc 100%) !important;"
+        }
         background-size: 280% 280% !important;
-        animation: auroraMesh 20s ease-in-out infinite !important;
-        color: #f8fafc !important;
-    }
+        animation: { "auroraMeshDark 20s ease-in-out infinite !important;" if is_dark else "auroraMeshLight 20s ease-in-out infinite !important;" }
+        color: { "#f8fafc !important;" if is_dark else "#0f172a !important;" }
+    }}
 
     /* 2. Frosted Glass Panels with Backdrop Blur */
-    .glass-card {
-        background: rgba(15, 23, 42, 0.72) !important;
+    .glass-card {{
+        background: { "rgba(15, 23, 42, 0.72) !important;" if is_dark else "rgba(255, 255, 255, 0.88) !important;" }
         backdrop-filter: blur(18px) !important;
         -webkit-backdrop-filter: blur(18px) !important;
-        border: 1px solid rgba(59, 130, 246, 0.22) !important;
+        border: { "1px solid rgba(59, 130, 246, 0.22) !important;" if is_dark else "1px solid rgba(203, 213, 225, 0.85) !important;" }
         border-radius: 16px !important;
         padding: 1.4rem 1.6rem !important;
-        box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+        box-shadow: {
+            "0 10px 30px -5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;"
+            if is_dark else
+            "0 10px 25px -5px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1) !important;"
+        }
         transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease, box-shadow 0.28s ease !important;
-    }
-    .glass-card:hover {
-        border-color: rgba(56, 189, 248, 0.45) !important;
-        box-shadow: 0 16px 40px -8px rgba(56, 189, 248, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    }}
+    .glass-card:hover {{
+        border-color: { "rgba(56, 189, 248, 0.45) !important;" if is_dark else "#2563eb !important;" }
+        box-shadow: {
+            "0 16px 40px -8px rgba(56, 189, 248, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;"
+            if is_dark else
+            "0 16px 35px -8px rgba(37, 99, 235, 0.16) !important;"
+        }
         transform: translateY(-3px) !important;
-    }
+    }}
 
     /* 3. Hover Enlarge Effects on Graphs */
-    .graph-enlarge-container {
-        background: rgba(15, 23, 42, 0.75) !important;
+    .graph-enlarge-container {{
+        background: { "rgba(15, 23, 42, 0.75) !important;" if is_dark else "rgba(255, 255, 255, 0.92) !important;" }
         backdrop-filter: blur(16px) !important;
         -webkit-backdrop-filter: blur(16px) !important;
-        border: 1px solid rgba(59, 130, 246, 0.22) !important;
+        border: { "1px solid rgba(59, 130, 246, 0.22) !important;" if is_dark else "1px solid rgba(203, 213, 225, 0.8) !important;" }
         border-radius: 18px !important;
         padding: 1.2rem 1.4rem !important;
         margin-bottom: 1.5rem !important;
-        box-shadow: 0 12px 35px -8px rgba(0, 0, 0, 0.6) !important;
+        box-shadow: {
+            "0 12px 35px -8px rgba(0, 0, 0, 0.6) !important;"
+            if is_dark else
+            "0 10px 30px -8px rgba(0, 0, 0, 0.07) !important;"
+        }
         transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.32s ease, border-color 0.32s ease !important;
-    }
-    .graph-enlarge-container:hover {
+    }}
+    .graph-enlarge-container:hover {{
         transform: translateY(-5px) scale(1.012) !important;
-        border-color: #38bdf8 !important;
-        box-shadow: 0 20px 50px -10px rgba(56, 189, 248, 0.3) !important;
-    }
-    .graph-caption-badge {
+        border-color: { "#38bdf8 !important;" if is_dark else "#2563eb !important;" }
+        box-shadow: {
+            "0 20px 50px -10px rgba(56, 189, 248, 0.3) !important;"
+            if is_dark else
+            "0 20px 45px -10px rgba(37, 99, 235, 0.2) !important;"
+        }
+    }}
+    .graph-caption-badge {{
         display: inline-block;
-        background: rgba(56, 189, 248, 0.15);
-        border: 1px solid rgba(56, 189, 248, 0.35);
-        color: #38bdf8;
+        background: { "rgba(56, 189, 248, 0.15);" if is_dark else "rgba(37, 99, 235, 0.1);" }
+        border: { "1px solid rgba(56, 189, 248, 0.35);" if is_dark else "1px solid rgba(37, 99, 235, 0.3);" }
+        color: { "#38bdf8;" if is_dark else "#2563eb;" }
         font-size: 0.76rem;
         font-weight: 700;
         letter-spacing: 0.05em;
@@ -99,30 +133,30 @@ st.markdown("""
         padding: 0.25rem 0.75rem;
         border-radius: 9999px;
         margin-bottom: 0.6rem;
-    }
+    }}
 
     /* 4. Page Entrance Transitions */
-    @keyframes pageFadeIn {
-        from {
+    @keyframes pageFadeIn {{
+        from {{
             opacity: 0;
             transform: translateY(14px);
-        }
-        to {
+        }}
+        to {{
             opacity: 1;
             transform: translateY(0);
-        }
-    }
-    .page-wrapper {
+        }}
+    }}
+    .page-wrapper {{
         animation: pageFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
+    }}
 
     /* 5. Rotating 3D Holographic Orbit */
-    @keyframes orbit3D {
-        0% { transform: rotateY(0deg) rotateX(15deg); }
-        50% { transform: rotateY(180deg) rotateX(-15deg); }
-        100% { transform: rotateY(360deg) rotateX(15deg); }
-    }
-    .hologram-orb {
+    @keyframes orbit3D {{
+        0% {{ transform: rotateY(0deg) rotateX(15deg); }}
+        50% {{ transform: rotateY(180deg) rotateX(-15deg); }}
+        100% {{ transform: rotateY(360deg) rotateX(15deg); }}
+    }}
+    .hologram-orb {{
         display: inline-block;
         width: 44px;
         height: 44px;
@@ -132,20 +166,20 @@ st.markdown("""
         animation: orbit3D 10s linear infinite;
         vertical-align: middle;
         margin-right: 12px;
-    }
+    }}
 
     /* 6. Neon Pulse Dots & Badges */
-    @keyframes neonPulse {
-        0%, 100% {
+    @keyframes neonPulse {{
+        0%, 100% {{
             box-shadow: 0 0 6px #34d399, 0 0 14px rgba(16, 185, 129, 0.6);
             opacity: 1;
-        }
-        50% {
+        }}
+        50% {{
             box-shadow: 0 0 14px #34d399, 0 0 26px rgba(16, 185, 129, 0.9);
             opacity: 0.75;
-        }
-    }
-    .live-status-dot {
+        }}
+    }}
+    .live-status-dot {{
         display: inline-block;
         width: 9px;
         height: 9px;
@@ -153,23 +187,23 @@ st.markdown("""
         background-color: #10b981;
         animation: neonPulse 2s infinite ease-in-out;
         margin-right: 8px;
-    }
-    .neon-glow-val {
-        color: #ffffff !important;
-        text-shadow: 0 0 18px rgba(56, 189, 248, 0.5) !important;
-    }
+    }}
+    .neon-glow-val {{
+        color: { "#ffffff !important;" if is_dark else "#1e3a8a !important;" }
+        text-shadow: { "0 0 18px rgba(56, 189, 248, 0.5) !important;" if is_dark else "none !important;" }
+    }}
 
-    /* 7. Dedicated Page Hero Banners */
-    .page-hero {
-        background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 27, 75, 0.85) 45%, rgba(30, 58, 138, 0.85) 100%);
+    /* 7. Dedicated Page Hero Banners (Bold Navy / Sapphire across both modes for maximum contrast) */
+    .page-hero {{
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 27, 75, 0.9) 45%, rgba(30, 58, 138, 0.9) 100%);
         backdrop-filter: blur(20px);
         border: 1px solid rgba(59, 130, 246, 0.3);
         border-radius: 18px;
         padding: 1.8rem 2.2rem;
-        margin-bottom: 1.8rem;
-        box-shadow: 0 12px 35px -5px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-    }
-    .page-hero-badge {
+        margin-bottom: 1.6rem;
+        box-shadow: 0 12px 35px -5px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    }}
+    .page-hero-badge {{
         display: inline-block;
         background: rgba(59, 130, 246, 0.25);
         border: 1px solid rgba(147, 197, 253, 0.4);
@@ -181,140 +215,219 @@ st.markdown("""
         border-radius: 9999px;
         text-transform: uppercase;
         margin-bottom: 0.7rem;
-    }
-    .page-hero-title {
+    }}
+    .page-hero-title {{
         font-size: 2.1rem;
         font-weight: 800;
         color: #ffffff !important;
         margin: 0.1rem 0 0.5rem 0;
         line-height: 1.2;
         letter-spacing: -0.02em;
-    }
-    .page-hero-subtitle {
+    }}
+    .page-hero-subtitle {{
         font-size: 1rem;
         color: #cbd5e1 !important;
         max-width: 900px;
         line-height: 1.6;
         margin-bottom: 0;
-    }
+    }}
 
     /* 8. KPI Stat Cards */
-    .stat-card {
-        background: rgba(20, 27, 45, 0.75) !important;
+    .stat-card {{
+        background: { "rgba(20, 27, 45, 0.75) !important;" if is_dark else "rgba(255, 255, 255, 0.92) !important;" }
         backdrop-filter: blur(14px) !important;
-        border: 1px solid rgba(51, 65, 85, 0.7) !important;
+        border: { "1px solid rgba(51, 65, 85, 0.7) !important;" if is_dark else "1px solid rgba(226, 232, 240, 0.9) !important;" }
         border-radius: 14px !important;
         padding: 1.2rem 1.3rem !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+        box-shadow: {
+            "0 6px 20px rgba(0, 0, 0, 0.35) !important;"
+            if is_dark else
+            "0 4px 15px rgba(0, 0, 0, 0.04) !important;"
+        }
         transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s ease, box-shadow 0.25s ease !important;
         text-align: left !important;
-    }
-    .stat-card:hover {
+    }}
+    .stat-card:hover {{
         transform: translateY(-3px) !important;
-        border-color: #38bdf8 !important;
-        box-shadow: 0 12px 30px rgba(56, 189, 248, 0.2) !important;
-    }
-    .stat-icon {
+        border-color: { "#38bdf8 !important;" if is_dark else "#2563eb !important;" }
+        box-shadow: {
+            "0 12px 30px rgba(56, 189, 248, 0.2) !important;"
+            if is_dark else
+            "0 10px 25px rgba(37, 99, 235, 0.14) !important;"
+        }
+    }}
+    .stat-icon {{
         font-size: 1.6rem !important;
         margin-bottom: 0.35rem !important;
-    }
-    .stat-label {
+    }}
+    .stat-label {{
         font-size: 0.74rem !important;
         font-weight: 700 !important;
         text-transform: uppercase !important;
         letter-spacing: 0.06em !important;
-        color: #94a3b8 !important;
+        color: { "#94a3b8 !important;" if is_dark else "#64748b !important;" }
         margin-bottom: 0.2rem !important;
-    }
-    .stat-value {
+    }}
+    .stat-value {{
         font-size: 1.8rem !important;
         font-weight: 800 !important;
-        color: #ffffff !important;
+        color: { "#ffffff !important;" if is_dark else "#1e3a8a !important;" }
         line-height: 1.1 !important;
-    }
-    .stat-caption {
+    }}
+    .stat-caption {{
         font-size: 0.76rem !important;
-        color: #64748b !important;
+        color: { "#64748b !important;" if is_dark else "#475569 !important;" }
         margin-top: 0.3rem !important;
-    }
+    }}
 
     /* 9. Sidebar Navigation Styling */
-    [data-testid="stSidebar"] {
-        background-color: rgba(9, 14, 26, 0.95) !important;
-        border-right: 1px solid rgba(59, 130, 246, 0.15) !important;
-    }
-    .stRadio [role="radiogroup"] {
+    [data-testid="stSidebar"] {{
+        background-color: { "rgba(9, 14, 26, 0.95) !important;" if is_dark else "#ffffff !important;" }
+        border-right: { "1px solid rgba(59, 130, 246, 0.15) !important;" if is_dark else "1px solid #e2e8f0 !important;" }
+    }}
+    [data-testid="stSidebar"] .stRadio [role="radiogroup"] {{
         gap: 6px !important;
-    }
-    .stRadio [role="radiogroup"] label {
-        background: rgba(15, 23, 42, 0.6) !important;
-        border: 1px solid rgba(51, 65, 85, 0.5) !important;
+    }}
+    [data-testid="stSidebar"] .stRadio [role="radiogroup"] label {{
+        background: { "rgba(15, 23, 42, 0.6) !important;" if is_dark else "#f8fafc !important;" }
+        border: { "1px solid rgba(51, 65, 85, 0.5) !important;" if is_dark else "1px solid #e2e8f0 !important;" }
         border-radius: 10px !important;
         padding: 0.6rem 0.9rem !important;
         transition: all 0.2s ease !important;
+        color: { "#e2e8f0 !important;" if is_dark else "#1e293b !important;" }
         cursor: pointer !important;
-    }
-    .stRadio [role="radiogroup"] label:hover {
-        background: rgba(59, 130, 246, 0.15) !important;
-        border-color: rgba(56, 189, 248, 0.4) !important;
-        box-shadow: 0 0 15px rgba(56, 189, 248, 0.15) !important;
+    }}
+    [data-testid="stSidebar"] .stRadio [role="radiogroup"] label:hover {{
+        background: { "rgba(59, 130, 246, 0.15) !important;" if is_dark else "rgba(37, 99, 235, 0.08) !important;" }
+        border-color: { "rgba(56, 189, 248, 0.4) !important;" if is_dark else "#2563eb !important;" }
+        box-shadow: { "0 0 15px rgba(56, 189, 248, 0.15) !important;" if is_dark else "0 0 15px rgba(37, 99, 235, 0.1) !important;" }
         transform: translateX(3px) !important;
-    }
+    }}
+
+    /* 10. Top Bar Theme Switcher (Dedicated Floating Pill Design) */
+    div[data-testid="stRadio"]:has(input[value*="Dark"]),
+    div[data-testid="stRadio"]:has(input[value*="Light"]) {{
+        display: flex !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        margin-top: 2px !important;
+    }}
+    div[data-testid="stRadio"]:has(input[value*="Dark"]) [role="radiogroup"],
+    div[data-testid="stRadio"]:has(input[value*="Light"]) [role="radiogroup"] {{
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+        gap: 6px !important;
+        background: { "rgba(15, 23, 42, 0.7)" if is_dark else "rgba(241, 245, 249, 0.9)" } !important;
+        padding: 3px 6px !important;
+        border-radius: 9999px !important;
+        border: 1px solid { "rgba(59, 130, 246, 0.25)" if is_dark else "rgba(203, 213, 225, 0.9)" } !important;
+        box-shadow: { "0 4px 15px rgba(0, 0, 0, 0.3)" if is_dark else "0 2px 8px rgba(0, 0, 0, 0.05)" } !important;
+    }}
+    div[data-testid="stRadio"]:has(input[value*="Dark"]) [role="radiogroup"] label,
+    div[data-testid="stRadio"]:has(input[value*="Light"]) [role="radiogroup"] label {{
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        border-radius: 9999px !important;
+        padding: 0.25rem 0.75rem !important;
+        font-size: 0.8rem !important;
+        font-weight: 700 !important;
+        color: { "#cbd5e1" if is_dark else "#475569" } !important;
+        box-shadow: none !important;
+        transform: none !important;
+    }}
+    div[data-testid="stRadio"]:has(input[value*="Dark"]) [role="radiogroup"] label:hover,
+    div[data-testid="stRadio"]:has(input[value*="Light"]) [role="radiogroup"] label:hover {{
+        background: { "rgba(59, 130, 246, 0.25)" if is_dark else "rgba(37, 99, 235, 0.12)" } !important;
+        color: { "#38bdf8" if is_dark else "#2563eb" } !important;
+    }}
+
+    /* 11. Light / Dark Contrast Overrides for Native Elements */
+    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5 {{
+        color: { "#ffffff !important;" if is_dark else "#0f172a !important;" }
+    }}
+    [data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] span {{
+        color: { "#e2e8f0 !important;" if is_dark else "#0f172a !important;" }
+        font-weight: 600 !important;
+    }}
+    .stSelectbox div[data-baseweb="select"] > div {{
+        background-color: { "rgba(15, 23, 42, 0.7) !important;" if is_dark else "#ffffff !important;" }
+        border-color: { "#334155 !important;" if is_dark else "#cbd5e1 !important;" }
+        color: { "#ffffff !important;" if is_dark else "#0f172a !important;" }
+    }}
+    .stTextInput input {{
+        background-color: { "rgba(15, 23, 42, 0.7) !important;" if is_dark else "#ffffff !important;" }
+        border-color: { "#334155 !important;" if is_dark else "#cbd5e1 !important;" }
+        color: { "#ffffff !important;" if is_dark else "#0f172a !important;" }
+    }}
+    .stTextArea textarea {{
+        background-color: { "rgba(15, 23, 42, 0.7) !important;" if is_dark else "#ffffff !important;" }
+        border-color: { "#334155 !important;" if is_dark else "#cbd5e1 !important;" }
+        color: { "#ffffff !important;" if is_dark else "#0f172a !important;" }
+    }}
 
     /* Theme Showcase Card */
-    .theme-card {
-        background: rgba(20, 27, 45, 0.78) !important;
+    .theme-card {{
+        background: { "rgba(20, 27, 45, 0.78) !important;" if is_dark else "rgba(255, 255, 255, 0.92) !important;" }
         backdrop-filter: blur(14px) !important;
-        border: 1px solid rgba(51, 65, 85, 0.8) !important;
-        border-top: 4px solid #3b82f6 !important;
+        border: { "1px solid rgba(51, 65, 85, 0.8) !important;" if is_dark else "1px solid rgba(226, 232, 240, 0.95) !important;" }
+        border-top: { "4px solid #3b82f6 !important;" if is_dark else "4px solid #2563eb !important;" }
         border-radius: 14px !important;
         padding: 1.4rem 1.6rem !important;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4) !important;
+        box-shadow: {
+            "0 8px 25px rgba(0, 0, 0, 0.4) !important;"
+            if is_dark else
+            "0 4px 16px rgba(0, 0, 0, 0.05) !important;"
+        }
         margin-bottom: 1.3rem !important;
         transition: transform 0.25s ease, border-color 0.25s ease !important;
-    }
-    .theme-card:hover {
+    }}
+    .theme-card:hover {{
         transform: translateY(-3px) !important;
-        border-color: #38bdf8 !important;
-        box-shadow: 0 14px 35px rgba(56, 189, 248, 0.18) !important;
-    }
+        border-color: { "#38bdf8 !important;" if is_dark else "#2563eb !important;" }
+        box-shadow: {
+            "0 14px 35px rgba(56, 189, 248, 0.18) !important;"
+            if is_dark else
+            "0 12px 30px rgba(37, 99, 235, 0.15) !important;"
+        }
+    }}
 
     /* Keyword Pills */
-    .keyword-pill {
+    .keyword-pill {{
         display: inline-block !important;
-        background: #0f172a !important;
-        color: #e2e8f0 !important;
+        background: { "#0f172a !important;" if is_dark else "#f1f5f9 !important;" }
+        color: { "#e2e8f0 !important;" if is_dark else "#1e293b !important;" }
         font-size: 0.8rem !important;
         font-weight: 600 !important;
         padding: 0.25rem 0.7rem !important;
         border-radius: 6px !important;
         margin-right: 0.45rem !important;
         margin-bottom: 0.45rem !important;
-        border: 1px solid #334155 !important;
+        border: { "1px solid #334155 !important;" if is_dark else "1px solid #cbd5e1 !important;" }
         transition: all 0.18s ease !important;
-    }
-    .keyword-pill:hover {
-        border-color: #38bdf8 !important;
-        color: #ffffff !important;
-        background: #1e293b !important;
+    }}
+    .keyword-pill:hover {{
+        border-color: { "#38bdf8 !important;" if is_dark else "#2563eb !important;" }
+        color: { "#ffffff !important;" if is_dark else "#0f172a !important;" }
+        background: { "#1e293b !important;" if is_dark else "#e2e8f0 !important;" }
         transform: scale(1.04) !important;
-    }
+    }}
 
-    /* Expanders in Dark Theme */
-    [data-testid="stExpander"] {
-        background: rgba(20, 27, 45, 0.7) !important;
-        border: 1px solid #334155 !important;
+    /* Expanders */
+    [data-testid="stExpander"] {{
+        background: { "rgba(20, 27, 45, 0.7) !important;" if is_dark else "rgba(255, 255, 255, 0.88) !important;" }
+        border: { "1px solid #334155 !important;" if is_dark else "1px solid #e2e8f0 !important;" }
         border-radius: 10px !important;
         margin-bottom: 0.9rem !important;
-    }
-    [data-testid="stExpander"] summary {
+    }}
+    [data-testid="stExpander"] summary {{
         font-weight: 600 !important;
-        color: #e2e8f0 !important;
+        color: { "#e2e8f0 !important;" if is_dark else "#0f172a !important;" }
         padding: 0.8rem 1rem !important;
-    }
-    [data-testid="stExpander"] summary:hover {
-        color: #38bdf8 !important;
-    }
+    }}
+    [data-testid="stExpander"] summary:hover {{
+        color: { "#38bdf8 !important;" if is_dark else "#2563eb !important;" }
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -333,12 +446,12 @@ from src.profiler import ClusterProfiler
 # SIDEBAR NAVIGATION & CONTROLS
 # ==========================================
 with st.sidebar:
-    st.markdown("""
+    st.markdown(f"""
     <div style="display: flex; align-items: center; margin-bottom: 1rem;">
         <div class="hologram-orb"></div>
         <div>
-            <div style="font-weight: 800; font-size: 1.15rem; color: #ffffff; letter-spacing: -0.01em;">Societal AI</div>
-            <div style="font-size: 0.75rem; color: #94a3b8;">Theme Discovery Engine</div>
+            <div style="font-weight: 800; font-size: 1.15rem; color: {'#ffffff' if is_dark else '#0f172a'}; letter-spacing: -0.01em;">Societal AI</div>
+            <div style="font-size: 0.75rem; color: {'#94a3b8' if is_dark else '#64748b'};">Theme Discovery Engine</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -400,10 +513,10 @@ with st.sidebar:
         sweep_max_k = st.slider("Multi-k Validation Range", 5, 12, 8, 1)
         random_seed = st.number_input("Random Seed", value=42, step=1)
 
-    st.markdown("""
-    <div style="margin-top: 1.5rem; padding: 0.6rem 0.8rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
+    st.markdown(f"""
+    <div style="margin-top: 1.5rem; padding: 0.6rem 0.8rem; background: {'rgba(16, 185, 129, 0.1)' if is_dark else 'rgba(16, 185, 129, 0.08)'}; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px;">
         <span class="live-status-dot"></span>
-        <span style="color: #34d399; font-weight: 700; font-size: 0.8rem;">Model Engine Active</span>
+        <span style="color: {'#34d399' if is_dark else '#059669'}; font-weight: 700; font-size: 0.8rem;">Model Engine Active</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -496,6 +609,33 @@ profiles = results['profiles']
 exemplars = results['exemplars']
 summary = results['summary']
 
+# ==========================================
+# TOP BAR: ENGINE BADGE & THEME TOGGLE (TOP RIGHT)
+# ==========================================
+col_top_left, col_top_right = st.columns([5, 1.5])
+
+with col_top_left:
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 8px; padding-top: 6px; margin-bottom: 0.6rem;">
+        <span class="live-status-dot"></span>
+        <span style="font-size: 0.8rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: {'#34d399' if is_dark else '#059669'};">
+            AI CLUSTERING PLATFORM
+        </span>
+        <span style="color: {'#475569' if is_dark else '#94a3b8'};">•</span>
+        <span style="font-size: 0.8rem; font-weight: 600; color: {'#94a3b8' if is_dark else '#64748b'};">
+            {selected_page}
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_top_right:
+    theme_choice = st.radio(
+        "Theme Mode",
+        ["🌙 Dark", "☀️ Light"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="theme_toggle_key"
+    )
 
 # ==============================================================================
 # PAGE 1: OVERVIEW & EXECUTIVE HUB
@@ -577,27 +717,27 @@ if selected_page == "🏠 Overview & Hub":
     col_ov1, col_ov2 = st.columns([1.1, 1], gap="large")
 
     with col_ov1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="glass-card">
-            <h3 style="color: #60a5fa; margin-top: 0; font-size: 1.25rem;">🔬 Unsupervised Methodology Pipeline</h3>
-            <p style="color: #cbd5e1; font-size: 0.92rem; line-height: 1.6;">
+            <h3 style="color: {'#60a5fa' if is_dark else '#2563eb'}; margin-top: 0; font-size: 1.25rem;">🔬 Unsupervised Methodology Pipeline</h3>
+            <p style="color: {'#cbd5e1' if is_dark else '#475569'}; font-size: 0.92rem; line-height: 1.6;">
                 How the AI extracts structure from unstructured civic challenge texts:
             </p>
-            <div style="background: rgba(15, 23, 42, 0.6); padding: 1rem; border-radius: 12px; border: 1px solid #334155; margin-bottom: 0.8rem;">
-                <div style="font-weight: 700; color: #38bdf8; font-size: 0.86rem; margin-bottom: 0.2rem;">1. Text Normalization & Cleaning</div>
-                <div style="color: #94a3b8; font-size: 0.8rem;">Cleans special characters, expands acronyms, and removes domain boilerplate noise (e.g., <i>'system'</i>, <i>'proposed'</i>, <i>'participants'</i>).</div>
+            <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f8fafc'}; padding: 1rem; border-radius: 12px; border: 1px solid {'#334155' if is_dark else '#e2e8f0'}; margin-bottom: 0.8rem;">
+                <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.86rem; margin-bottom: 0.2rem;">1. Text Normalization & Cleaning</div>
+                <div style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.8rem;">Cleans special characters, expands acronyms, and removes domain boilerplate noise (e.g., <i>'system'</i>, <i>'proposed'</i>, <i>'participants'</i>).</div>
             </div>
-            <div style="background: rgba(15, 23, 42, 0.6); padding: 1rem; border-radius: 12px; border: 1px solid #334155; margin-bottom: 0.8rem;">
-                <div style="font-weight: 700; color: #38bdf8; font-size: 0.86rem; margin-bottom: 0.2rem;">2. TF-IDF High-Dimensional Embeddings</div>
-                <div style="color: #94a3b8; font-size: 0.8rem;">Extracts salient unigrams and bigrams with L2 sublinear term frequency weighting across vocabulary features.</div>
+            <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f8fafc'}; padding: 1rem; border-radius: 12px; border: 1px solid {'#334155' if is_dark else '#e2e8f0'}; margin-bottom: 0.8rem;">
+                <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.86rem; margin-bottom: 0.2rem;">2. TF-IDF High-Dimensional Embeddings</div>
+                <div style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.8rem;">Extracts salient unigrams and bigrams with L2 sublinear term frequency weighting across vocabulary features.</div>
             </div>
-            <div style="background: rgba(15, 23, 42, 0.6); padding: 1rem; border-radius: 12px; border: 1px solid #334155; margin-bottom: 0.8rem;">
-                <div style="font-weight: 700; color: #38bdf8; font-size: 0.86rem; margin-bottom: 0.2rem;">3. Spatial Partition Clustering & PCA Projection</div>
-                <div style="color: #94a3b8; font-size: 0.8rem;">Partitions vectors into optimal centroids using Euclidean K-Means or Manhattan K-Medoids, projected onto 2D/3D PCA manifolds.</div>
+            <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f8fafc'}; padding: 1rem; border-radius: 12px; border: 1px solid {'#334155' if is_dark else '#e2e8f0'}; margin-bottom: 0.8rem;">
+                <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.86rem; margin-bottom: 0.2rem;">3. Spatial Partition Clustering & PCA Projection</div>
+                <div style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.8rem;">Partitions vectors into optimal centroids using Euclidean K-Means or Manhattan K-Medoids, projected onto 2D/3D PCA manifolds.</div>
             </div>
-            <div style="background: rgba(15, 23, 42, 0.6); padding: 1rem; border-radius: 12px; border: 1px solid #334155;">
-                <div style="font-weight: 700; color: #38bdf8; font-size: 0.86rem; margin-bottom: 0.2rem;">4. Thematic Keyword Extraction & Exemplars</div>
-                <div style="color: #94a3b8; font-size: 0.8rem;">Extracts highest-weighted centroid terms to generate human-readable societal mission titles and closest real-world exemplars.</div>
+            <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f8fafc'}; padding: 1rem; border-radius: 12px; border: 1px solid {'#334155' if is_dark else '#e2e8f0'};">
+                <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.86rem; margin-bottom: 0.2rem;">4. Thematic Keyword Extraction & Exemplars</div>
+                <div style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.8rem;">Extracts highest-weighted centroid terms to generate human-readable societal mission titles and closest real-world exemplars.</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -605,7 +745,7 @@ if selected_page == "🏠 Overview & Hub":
     with col_ov2:
         st.markdown('<div class="graph-enlarge-container">', unsafe_allow_html=True)
         st.markdown('<div class="graph-caption-badge">Interactive Distribution • Hover to Enlarge</div>', unsafe_allow_html=True)
-        st.markdown("#### 🏛️ Top Participating Government Bodies")
+        st.markdown(f"#### 🏛️ Top Participating Government Bodies")
         top_orgs_overview = df['Organization'].value_counts().head(6).reset_index()
         top_orgs_overview.columns = ['Organization', 'Count']
         fig_ov_bar = px.bar(
@@ -613,10 +753,10 @@ if selected_page == "🏠 Overview & Hub":
             color='Count', color_continuous_scale='Blues'
         )
         fig_ov_bar.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="#e2e8f0",
+            template=plotly_template,
+            paper_bgcolor=plotly_paper_bg,
+            plot_bgcolor=plotly_plot_bg,
+            font_color=plotly_font_color,
             yaxis={'categoryorder': 'total ascending'},
             height=320,
             margin=dict(l=10, r=10, t=20, b=10)
@@ -664,15 +804,15 @@ elif selected_page == "🌟 Discovered Themes":
         st.markdown(f"""
         <div class="theme-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem;">
-                <div style="font-size: 1.35rem; font-weight: 800; color: #ffffff;">
+                <div style="font-size: 1.35rem; font-weight: 800; color: {'#ffffff' if is_dark else '#0f172a'};">
                     {icon} Theme {k_idx + 1}: {title}
                 </div>
-                <div style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); padding: 0.35rem 0.85rem; border-radius: 9999px; font-weight: 700; color: #38bdf8; font-size: 0.84rem;">
+                <div style="background: {'rgba(56, 189, 248, 0.15)' if is_dark else 'rgba(37, 99, 235, 0.1)'}; border: 1px solid {'rgba(56, 189, 248, 0.4)' if is_dark else 'rgba(37, 99, 235, 0.3)'}; padding: 0.35rem 0.85rem; border-radius: 9999px; font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.84rem;">
                     {cluster_count} Challenges ({cluster_pct:.1f}% of national pool)
                 </div>
             </div>
             <div style="margin-bottom: 0.8rem;">
-                <span style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin-right: 0.6rem;">Top Characteristic Vocabulary:</span>
+                <span style="font-size: 0.76rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: {'#94a3b8' if is_dark else '#64748b'}; margin-right: 0.6rem;">Top Characteristic Vocabulary:</span>
         """, unsafe_allow_html=True)
 
         # Keyword pills
@@ -685,9 +825,9 @@ elif selected_page == "🌟 Discovered Themes":
             if theme_exemplars:
                 for ex in theme_exemplars:
                     st.markdown(f"""
-                    <div style="background: rgba(15, 23, 42, 0.5); border-left: 3px solid #38bdf8; padding: 0.6rem 0.9rem; margin-bottom: 0.6rem; border-radius: 0 8px 8px 0;">
-                        <div style="font-size: 0.76rem; color: #94a3b8; font-weight: 600;">[{ex['id']}] • {ex['org']} • Modality: {ex['category']} • Distance: {ex['distance_to_center']}</div>
-                        <div style="font-size: 0.9rem; color: #f1f5f9; font-weight: 600; margin-top: 0.2rem;">{ex['title']}</div>
+                    <div style="background: {'rgba(15, 23, 42, 0.5)' if is_dark else '#f8fafc'}; border-left: 3px solid {'#38bdf8' if is_dark else '#2563eb'}; padding: 0.6rem 0.9rem; margin-bottom: 0.6rem; border-radius: 0 8px 8px 0;">
+                        <div style="font-size: 0.76rem; color: {'#94a3b8' if is_dark else '#64748b'}; font-weight: 600;">[{ex['id']}] • {ex['org']} • Modality: {ex['category']} • Distance: {ex['distance_to_center']}</div>
+                        <div style="font-size: 0.9rem; color: {'#f1f5f9' if is_dark else '#0f172a'}; font-weight: 600; margin-top: 0.2rem;">{ex['title']}</div>
                     </div>
                     """, unsafe_allow_html=True)
             else:
@@ -737,8 +877,8 @@ elif selected_page == "🔍 Challenge Inspector":
         filtered_view = filtered_view[filtered_view['Category'] == cat_filter]
 
     st.markdown(f"""
-    <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 8px; padding: 0.5rem 0.9rem; margin-bottom: 1.2rem; display: inline-block;">
-        <span style="color: #38bdf8; font-weight: 700;">Found {len(filtered_view)}</span> <span style="color: #94a3b8;">matching problem statements</span>
+    <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else 'rgba(255, 255, 255, 0.8)'}; border: 1px solid {'rgba(59, 130, 246, 0.2)' if is_dark else 'rgba(203, 213, 225, 0.8)'}; border-radius: 8px; padding: 0.5rem 0.9rem; margin-bottom: 1.2rem; display: inline-block;">
+        <span style="color: {'#38bdf8' if is_dark else '#2563eb'}; font-weight: 700;">Found {len(filtered_view)}</span> <span style="color: {'#94a3b8' if is_dark else '#64748b'};">matching problem statements</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -784,9 +924,9 @@ elif selected_page == "🌌 3D Theme Galaxy":
         show_centroids = st.checkbox("Show Theme Centers (Centroids)", value=True)
         st.markdown(f"""
         <div class="glass-card" style="padding: 1rem; margin-top: 1rem;">
-            <div style="font-size: 0.76rem; font-weight: 700; color: #94a3b8; text-transform: uppercase;">PCA Explained Variance</div>
-            <div style="font-size: 1.4rem; font-weight: 800; color: #38bdf8; margin: 0.3rem 0;">{results['pca_exp_var']['total_retained_variance']}%</div>
-            <div style="font-size: 0.76rem; color: #64748b;">Retained in 3 components</div>
+            <div style="font-size: 0.76rem; font-weight: 700; color: {'#94a3b8' if is_dark else '#64748b'}; text-transform: uppercase;">PCA Explained Variance</div>
+            <div style="font-size: 1.4rem; font-weight: 800; color: {'#38bdf8' if is_dark else '#2563eb'}; margin: 0.3rem 0;">{results['pca_exp_var']['total_retained_variance']}%</div>
+            <div style="font-size: 0.76rem; color: {'#64748b' if is_dark else '#475569'};">Retained in 3 components</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -807,16 +947,16 @@ elif selected_page == "🌌 3D Theme Galaxy":
                 cent = results['pca_centroids']
                 fig_galaxy.add_trace(go.Scatter(
                     x=cent[:, 0], y=cent[:, 1], mode='markers+text',
-                    marker=dict(symbol='diamond', size=16, color='#38bdf8', line=dict(width=2, color='white')),
+                    marker=dict(symbol='diamond', size=16, color='#38bdf8' if is_dark else '#2563eb', line=dict(width=2, color='white')),
                     text=[f"Theme {i+1} Center" for i in range(len(cent))],
                     textposition="top center",
                     name="Theme Centers"
                 ))
             fig_galaxy.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(15, 23, 42, 0.6)",
-                font_color="#e2e8f0",
+                template=plotly_template,
+                paper_bgcolor=plotly_paper_bg,
+                plot_bgcolor=plotly_plot_bg,
+                font_color=plotly_font_color,
                 height=560,
                 legend=dict(orientation="h", yanchor="bottom", y=-0.35)
             )
@@ -835,15 +975,15 @@ elif selected_page == "🌌 3D Theme Galaxy":
                 fig_galaxy3d.add_trace(go.Scatter3d(
                     x=cent[:, 0], y=cent[:, 1], z=cent[:, 2],
                     mode='markers+text',
-                    marker=dict(symbol='diamond', size=10, color='#38bdf8', line=dict(width=2, color='white')),
+                    marker=dict(symbol='diamond', size=10, color='#38bdf8' if is_dark else '#2563eb', line=dict(width=2, color='white')),
                     text=[f"Center {i+1}" for i in range(len(cent))],
                     textposition="top center",
                     name="Theme Centers"
                 ))
             fig_galaxy3d.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                font_color="#e2e8f0",
+                template=plotly_template,
+                paper_bgcolor=plotly_paper_bg,
+                font_color=plotly_font_color,
                 height=620
             )
             st.plotly_chart(fig_galaxy3d, use_container_width=True)
@@ -857,10 +997,10 @@ elif selected_page == "🌌 3D Theme Galaxy":
     col_l1, col_l2, col_l3 = st.columns(3)
     
     with col_l1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="glass-card" style="padding: 1rem;">
-            <div style="font-weight: 700; color: #38bdf8; font-size: 0.9rem;">Principal Component 1 (PC1)</div>
-            <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 0.5rem;">Primary semantic variance axis</div>
+            <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.9rem;">Principal Component 1 (PC1)</div>
+            <div style="font-size: 0.78rem; color: {'#94a3b8' if is_dark else '#64748b'}; margin-bottom: 0.5rem;">Primary semantic variance axis</div>
         """, unsafe_allow_html=True)
         st.write("**Top Positive Features:**")
         st.write(", ".join([f"{w[0]} ({w[1]:.2f})" for w in loadings['PC1']['positive'][:4]]))
@@ -869,10 +1009,10 @@ elif selected_page == "🌌 3D Theme Galaxy":
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_l2:
-        st.markdown("""
+        st.markdown(f"""
         <div class="glass-card" style="padding: 1rem;">
-            <div style="font-weight: 700; color: #38bdf8; font-size: 0.9rem;">Principal Component 2 (PC2)</div>
-            <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 0.5rem;">Orthogonal variance axis</div>
+            <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.9rem;">Principal Component 2 (PC2)</div>
+            <div style="font-size: 0.78rem; color: {'#94a3b8' if is_dark else '#64748b'}; margin-bottom: 0.5rem;">Orthogonal variance axis</div>
         """, unsafe_allow_html=True)
         st.write("**Top Positive Features:**")
         st.write(", ".join([f"{w[0]} ({w[1]:.2f})" for w in loadings['PC2']['positive'][:4]]))
@@ -881,10 +1021,10 @@ elif selected_page == "🌌 3D Theme Galaxy":
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_l3:
-        st.markdown("""
+        st.markdown(f"""
         <div class="glass-card" style="padding: 1rem;">
-            <div style="font-weight: 700; color: #38bdf8; font-size: 0.9rem;">Principal Component 3 (PC3)</div>
-            <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 0.5rem;">Tertiary depth dimension</div>
+            <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.9rem;">Principal Component 3 (PC3)</div>
+            <div style="font-size: 0.78rem; color: {'#94a3b8' if is_dark else '#64748b'}; margin-bottom: 0.5rem;">Tertiary depth dimension</div>
         """, unsafe_allow_html=True)
         st.write("**Top Positive Features:**")
         st.write(", ".join([f"{w[0]} ({w[1]:.2f})" for w in loadings['PC3']['positive'][:4]]))
@@ -924,10 +1064,10 @@ elif selected_page == "⚖️ Bias & Ethics Audit":
             color='Challenge Count', color_continuous_scale='Blues'
         )
         fig_org_bar.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="#e2e8f0",
+            template=plotly_template,
+            paper_bgcolor=plotly_paper_bg,
+            plot_bgcolor=plotly_plot_bg,
+            font_color=plotly_font_color,
             yaxis={'categoryorder': 'total ascending'},
             height=320,
             margin=dict(l=10, r=10, t=10, b=10)
@@ -965,7 +1105,7 @@ elif selected_page == "⚖️ Bias & Ethics Audit":
         st.markdown("""
         <div class="glass-card" style="border-left: 4px solid #f59e0b;">
             <div style="font-weight: 700; color: #fbbf24; font-size: 0.95rem; margin-bottom: 0.4rem;">⚠️ Exploratory Discovery vs. Rigid Dogma</div>
-            <div style="font-size: 0.88rem; color: #cbd5e1; line-height: 1.6;">
+            <div style="font-size: 0.88rem; line-height: 1.6;">
                 Unsupervised clusters are mathematically discovered groupings based on lexical co-occurrence. 
                 They serve as discovery lenses for policy makers and evaluators, not as permanent or exclusive real-world boundaries.
             </div>
@@ -973,10 +1113,10 @@ elif selected_page == "⚖️ Bias & Ethics Audit":
         """, unsafe_allow_html=True)
 
     with col_eth2:
-        st.markdown("""
-        <div class="glass-card" style="border-left: 4px solid #38bdf8;">
-            <div style="font-weight: 700; color: #38bdf8; font-size: 0.95rem; margin-bottom: 0.4rem;">ℹ️ Linguistic & Lexical Polysemy</div>
-            <div style="font-size: 0.88rem; color: #cbd5e1; line-height: 1.6;">
+        st.markdown(f"""
+        <div class="glass-card" style="border-left: 4px solid {'#38bdf8' if is_dark else '#2563eb'};">
+            <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#2563eb'}; font-size: 0.95rem; margin-bottom: 0.4rem;">ℹ️ Linguistic & Lexical Polysemy</div>
+            <div style="font-size: 0.88rem; line-height: 1.6;">
                 Words such as <i>'monitoring'</i>, <i>'detection'</i>, and <i>'prediction'</i> naturally cut across multiple domains 
                 (agriculture, healthcare, defense). Contextual human oversight remains essential for borderline challenges.
             </div>
@@ -1012,19 +1152,19 @@ elif selected_page == "🔬 Science & Validation":
     
     with col_ev1:
         fig_wcss = px.line(eval_df, x='k', y='WCSS', markers=True, title="Elbow Curve (Inertia)")
-        fig_wcss.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15, 23, 42, 0.6)", height=260, margin=dict(l=10, r=10, t=30, b=10))
+        fig_wcss.update_layout(template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg, font_color=plotly_font_color, height=260, margin=dict(l=10, r=10, t=30, b=10))
         st.plotly_chart(fig_wcss, use_container_width=True)
         st.caption("Diminishing returns elbow inspection.")
 
     with col_ev2:
         fig_sil = px.line(eval_df, x='k', y='Silhouette_Score', markers=True, title="Silhouette Score Curve")
-        fig_sil.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15, 23, 42, 0.6)", height=260, margin=dict(l=10, r=10, t=30, b=10))
+        fig_sil.update_layout(template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg, font_color=plotly_font_color, height=260, margin=dict(l=10, r=10, t=30, b=10))
         st.plotly_chart(fig_sil, use_container_width=True)
         st.caption("Cohesion vs. separation (higher is better).")
 
     with col_ev3:
         fig_db = px.line(eval_df, x='k', y='Davies_Bouldin_Index', markers=True, title="Davies-Bouldin Index")
-        fig_db.update_layout(template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(15, 23, 42, 0.6)", height=260, margin=dict(l=10, r=10, t=30, b=10))
+        fig_db.update_layout(template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg, font_color=plotly_font_color, height=260, margin=dict(l=10, r=10, t=30, b=10))
         st.plotly_chart(fig_db, use_container_width=True)
         st.caption("Cluster similarity index (lower is better).")
 
@@ -1038,8 +1178,8 @@ elif selected_page == "🔬 Science & Validation":
         st.markdown('<div class="graph-caption-badge">Taxonomic Hierarchy</div>', unsafe_allow_html=True)
         st.markdown("#### 🌳 Agglomerative Hierarchical Linkage Dendrogram")
         fig_dend, ax_dend = plt.subplots(figsize=(10, 4.2))
-        fig_dend.patch.set_facecolor('#0f172a')
-        ax_dend.set_facecolor('#0f172a')
+        fig_dend.patch.set_facecolor(dend_bg)
+        ax_dend.set_facecolor(dend_bg)
         
         dendrogram(
             results['linkage_mat'],
@@ -1051,9 +1191,9 @@ elif selected_page == "🔬 Science & Validation":
             ax=ax_dend,
             color_threshold=results['linkage_mat'][-num_clusters+1, 2] if num_clusters > 1 else None
         )
-        ax_dend.tick_params(colors='#94a3b8')
+        ax_dend.tick_params(colors=dend_tick_color)
         for spine in ax_dend.spines.values():
-            spine.set_color('#334155')
+            spine.set_color(dend_spine_color)
         st.pyplot(fig_dend)
         st.caption("Bottom-up hierarchical dendrogram showing how challenge themes merge at increasing distance thresholds.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -1097,13 +1237,13 @@ elif selected_page == "📥 Export Studio":
     col_exp1, col_exp2 = st.columns(2, gap="large")
 
     with col_exp1:
-        st.markdown("""
+        st.markdown(f"""
         <div class="glass-card">
-            <h4 style="color: #38bdf8; margin-top: 0;">📊 Clustered Dataset (.csv)</h4>
-            <p style="color: #cbd5e1; font-size: 0.9rem;">
+            <h4 style="color: {'#38bdf8' if is_dark else '#2563eb'}; margin-top: 0;">📊 Clustered Dataset (.csv)</h4>
+            <p style="color: {'#cbd5e1' if is_dark else '#475569'}; font-size: 0.9rem;">
                 Includes all original problem statement fields plus:
             </p>
-            <ul style="color: #94a3b8; font-size: 0.86rem;">
+            <ul style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.86rem;">
                 <li><code>Cluster_ID</code> (0 to k-1)</li>
                 <li><code>Theme_Title</code> (Autonomous AI Title)</li>
                 <li><code>PCA_Dim1</code>, <code>PCA_Dim2</code>, <code>PCA_Dim3</code></li>
@@ -1122,10 +1262,10 @@ elif selected_page == "📥 Export Studio":
         )
 
     with col_exp2:
-        st.markdown("""
+        st.markdown(f"""
         <div class="glass-card">
-            <h4 style="color: #38bdf8; margin-top: 0;">📑 Executive Summary Report (.md)</h4>
-            <p style="color: #cbd5e1; font-size: 0.9rem;">
+            <h4 style="color: {'#38bdf8' if is_dark else '#2563eb'}; margin-top: 0;">📑 Executive Summary Report (.md)</h4>
+            <p style="color: {'#cbd5e1' if is_dark else '#475569'}; font-size: 0.9rem;">
                 Markdown report containing quantitative validation scores, discovered theme breakdowns, top feature keywords, and ethical bias audit findings.
             </p>
         </div>
