@@ -33,8 +33,10 @@ is_dark = "Dark" in st.session_state["theme_toggle_key"]
 # Plotly & Matplotlib theme configuration variables
 plotly_template = "plotly_dark" if is_dark else "plotly_white"
 plotly_paper_bg = "rgba(0,0,0,0)"
-plotly_plot_bg = "rgba(15, 23, 42, 0.6)" if is_dark else "rgba(248, 250, 252, 0.85)"
+plotly_plot_bg = "rgba(15, 23, 42, 0.6)" if is_dark else "rgba(248, 250, 252, 0.9)"
 plotly_font_color = "#e2e8f0" if is_dark else "#0f172a"
+plotly_grid_color = "rgba(255, 255, 255, 0.12)" if is_dark else "rgba(0, 0, 0, 0.08)"
+plotly_axis_color = "#94a3b8" if is_dark else "#334155"
 dend_bg = '#0f172a' if is_dark else '#ffffff'
 dend_spine_color = '#334155' if is_dark else '#cbd5e1'
 dend_tick_color = '#94a3b8' if is_dark else '#334155'
@@ -624,6 +626,25 @@ from src.hierarchical import HierarchicalWorkflow
 from src.dim_reduction import PCAVisualizer
 from src.profiler import ClusterProfiler
 
+def render_styled_table(data_table):
+    """Renders a responsive, high-contrast HTML table matching the active Dark/Light theme."""
+    bg_th = 'rgba(30, 41, 59, 0.95)' if is_dark else '#e2e8f0'
+    text_th = '#38bdf8' if is_dark else '#1e3a8a'
+    border_c = '#334155' if is_dark else '#cbd5e1'
+    text_td = '#cbd5e1' if is_dark else '#0f172a'
+    bg_alt = 'rgba(15, 23, 42, 0.5)' if is_dark else '#f8fafc'
+    
+    dt = data_table.reset_index() if (hasattr(data_table, 'index') and (data_table.index.name or not isinstance(data_table.index, pd.RangeIndex))) else data_table
+    th_cells = "".join([f"<th style='padding: 10px 14px; color: {text_th}; font-weight: 700; border-bottom: 2px solid {border_c}; text-align: left;'>{col}</th>" for col in dt.columns])
+    rows_html = []
+    for idx, r in dt.iterrows():
+        row_bg = bg_alt if idx % 2 == 1 else ('rgba(15, 23, 42, 0.2)' if is_dark else '#ffffff')
+        tds = "".join([f"<td style='padding: 9px 14px; color: {text_td}; font-weight: 500;'>{val}</td>" for val in r])
+        rows_html.append(f"<tr style='background: {row_bg}; border-bottom: 1px solid {border_c};'>{tds}</tr>")
+    
+    full_html = f"<div style='overflow-x: auto; margin: 0.8rem 0; border-radius: 10px; border: 1px solid {border_c}; box-shadow: 0 4px 12px rgba(0,0,0,0.05);'><table style='width: 100%; border-collapse: collapse; font-size: 0.86rem; font-family: inherit;'><thead><tr style='background: {bg_th};'>{th_cells}</tr></thead><tbody>{''.join(rows_html)}</tbody></table></div>"
+    st.markdown(full_html, unsafe_allow_html=True)
+
 # ==========================================
 # SIDEBAR NAVIGATION & CONTROLS
 # ==========================================
@@ -938,12 +959,14 @@ if selected_page == "🏠 Overview & Hub":
             template=plotly_template,
             paper_bgcolor=plotly_paper_bg,
             plot_bgcolor=plotly_plot_bg,
-            font_color=plotly_font_color,
-            yaxis={'categoryorder': 'total ascending'},
+            font=dict(color=plotly_font_color, family="Plus Jakarta Sans, sans-serif"),
+            xaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            yaxis=dict(categoryorder='total ascending', title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            coloraxis=dict(colorbar=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color))),
             height=320,
             margin=dict(l=10, r=10, t=20, b=10)
         )
-        st.plotly_chart(fig_ov_bar, use_container_width=True)
+        st.plotly_chart(fig_ov_bar, use_container_width=True, theme=None)
         st.caption("Hover over bars to inspect challenge counts per submitting ministry.")
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1146,11 +1169,18 @@ elif selected_page == "🌌 3D Theme Galaxy":
                 template=plotly_template,
                 paper_bgcolor=plotly_paper_bg,
                 plot_bgcolor=plotly_plot_bg,
-                font_color=plotly_font_color,
-                height=560,
-                legend=dict(orientation="h", yanchor="bottom", y=-0.35)
+                font=dict(color=plotly_font_color, family="Plus Jakarta Sans, sans-serif"),
+                title=dict(font=dict(color=plotly_font_color, size=16)),
+                legend=dict(
+                    font=dict(color=plotly_font_color),
+                    title=dict(font=dict(color=plotly_font_color)),
+                    orientation="h", yanchor="bottom", y=-0.35
+                ),
+                xaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+                yaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+                height=560
             )
-            st.plotly_chart(fig_galaxy, use_container_width=True)
+            st.plotly_chart(fig_galaxy, use_container_width=True, theme=None)
         else:
             fig_galaxy3d = px.scatter_3d(
                 df, x='PCA_Dim1', y='PCA_Dim2', z='PCA_Dim3',
@@ -1173,10 +1203,17 @@ elif selected_page == "🌌 3D Theme Galaxy":
             fig_galaxy3d.update_layout(
                 template=plotly_template,
                 paper_bgcolor=plotly_paper_bg,
-                font_color=plotly_font_color,
+                font=dict(color=plotly_font_color, family="Plus Jakarta Sans, sans-serif"),
+                title=dict(font=dict(color=plotly_font_color, size=16)),
+                legend=dict(font=dict(color=plotly_font_color), title=dict(font=dict(color=plotly_font_color))),
+                scene=dict(
+                    xaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), backgroundcolor=plotly_plot_bg, gridcolor=plotly_grid_color),
+                    yaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), backgroundcolor=plotly_plot_bg, gridcolor=plotly_grid_color),
+                    zaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), backgroundcolor=plotly_plot_bg, gridcolor=plotly_grid_color)
+                ),
                 height=620
             )
-            st.plotly_chart(fig_galaxy3d, use_container_width=True)
+            st.plotly_chart(fig_galaxy3d, use_container_width=True, theme=None)
         
         st.caption("Each cluster forms a distinct semantic galaxy. Hover over any node to inspect the challenge title, department, and PCA coordinates.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -1257,12 +1294,14 @@ elif selected_page == "⚖️ Bias & Ethics Audit":
             template=plotly_template,
             paper_bgcolor=plotly_paper_bg,
             plot_bgcolor=plotly_plot_bg,
-            font_color=plotly_font_color,
-            yaxis={'categoryorder': 'total ascending'},
+            font=dict(color=plotly_font_color, family="Plus Jakarta Sans, sans-serif"),
+            xaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            yaxis=dict(categoryorder='total ascending', title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            coloraxis=dict(colorbar=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color))),
             height=320,
             margin=dict(l=10, r=10, t=10, b=10)
         )
-        st.plotly_chart(fig_org_bar, use_container_width=True)
+        st.plotly_chart(fig_org_bar, use_container_width=True, theme=None)
         st.caption("Highlights institutional skew: a handful of public bodies account for a major share of submissions.")
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1278,14 +1317,14 @@ elif selected_page == "⚖️ Bias & Ethics Audit":
         vague_df = df[df['Theme'].isin(['Smart Automation', 'Miscellaneous'])]
         if len(vague_df) > 0:
             regroup_counts = vague_df.groupby(['Theme', 'Theme_Title']).size().unstack(fill_value=0)
-            st.dataframe(regroup_counts, use_container_width=True)
+            render_styled_table(regroup_counts)
             st.caption("Demonstrates how NLP reveals specific domain clusters within vague labels.")
         else:
             top_themes = df['Theme'].value_counts().head(5).index.tolist()
             subset_df = df[df['Theme'].isin(top_themes)]
             if len(subset_df) > 0:
                 regroup_counts = subset_df.groupby(['Theme', 'Theme_Title']).size().unstack(fill_value=0)
-                st.dataframe(regroup_counts, use_container_width=True)
+                render_styled_table(regroup_counts)
                 st.caption("Cross-tabulation of discovered AI themes against top source themes.")
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1344,20 +1383,38 @@ elif selected_page == "🔬 Science & Validation":
     
     with col_ev1:
         fig_wcss = px.line(eval_df, x='k', y='WCSS', markers=True, title="Elbow Curve (Inertia)")
-        fig_wcss.update_layout(template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg, font_color=plotly_font_color, height=260, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_wcss, use_container_width=True)
+        fig_wcss.update_layout(
+            template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg,
+            font=dict(color=plotly_font_color), title_font=dict(color=plotly_font_color),
+            xaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            yaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            height=260, margin=dict(l=10, r=10, t=30, b=10)
+        )
+        st.plotly_chart(fig_wcss, use_container_width=True, theme=None)
         st.caption("Diminishing returns elbow inspection.")
 
     with col_ev2:
         fig_sil = px.line(eval_df, x='k', y='Silhouette_Score', markers=True, title="Silhouette Score Curve")
-        fig_sil.update_layout(template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg, font_color=plotly_font_color, height=260, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_sil, use_container_width=True)
+        fig_sil.update_layout(
+            template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg,
+            font=dict(color=plotly_font_color), title_font=dict(color=plotly_font_color),
+            xaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            yaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            height=260, margin=dict(l=10, r=10, t=30, b=10)
+        )
+        st.plotly_chart(fig_sil, use_container_width=True, theme=None)
         st.caption("Cohesion vs. separation (higher is better).")
 
     with col_ev3:
         fig_db = px.line(eval_df, x='k', y='Davies_Bouldin_Index', markers=True, title="Davies-Bouldin Index")
-        fig_db.update_layout(template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg, font_color=plotly_font_color, height=260, margin=dict(l=10, r=10, t=30, b=10))
-        st.plotly_chart(fig_db, use_container_width=True)
+        fig_db.update_layout(
+            template=plotly_template, paper_bgcolor=plotly_paper_bg, plot_bgcolor=plotly_plot_bg,
+            font=dict(color=plotly_font_color), title_font=dict(color=plotly_font_color),
+            xaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            yaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
+            height=260, margin=dict(l=10, r=10, t=30, b=10)
+        )
+        st.plotly_chart(fig_db, use_container_width=True, theme=None)
         st.caption("Cluster similarity index (lower is better).")
 
     st.markdown('</div>', unsafe_allow_html=True)
@@ -1407,7 +1464,7 @@ elif selected_page == "🔬 Science & Validation":
         """, unsafe_allow_html=True)
         contingency_df = results['hier_comp'].get('contingency_matrix', results['hier_comp'].get('contingency_table'))
         if contingency_df is not None:
-            st.dataframe(contingency_df, use_container_width=True)
+            render_styled_table(contingency_df)
         st.caption("High concordance between partition and hierarchical clustering validates natural cluster emergence.")
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1502,6 +1559,6 @@ elif selected_page == "📥 Export Studio":
     st.markdown("---")
     st.markdown("#### 🔍 Dataset Preview")
     preview_cols = ['Problem Statement ID', 'Problem Statement Title', 'Organization', 'Category', 'Theme_Title', 'PCA_Dim1', 'PCA_Dim2', 'PCA_Dim3']
-    st.dataframe(df[preview_cols].head(15), use_container_width=True)
+    render_styled_table(df[preview_cols].head(15))
 
     st.markdown('</div>', unsafe_allow_html=True)
