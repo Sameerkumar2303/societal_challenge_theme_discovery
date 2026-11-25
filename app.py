@@ -967,25 +967,26 @@ if selected_page == "🏠 Overview & Hub":
     col_ov1, col_ov2 = st.columns([1.1, 1], gap="large")
 
     with col_ov1:
-        st.markdown(f'<div class="glass-card" style="padding: 1.2rem 1.4rem; min-height: 480px;">', unsafe_allow_html=True)
-        tab_missions, tab_classifier = st.tabs(["🌟 Discovered Missions", "⚡ Live AI Classifier Sandbox"])
+        tab_missions, tab_classifier = st.tabs(["🌟 Discovered Missions", "⚡ Live Challenge Classifier"])
         
         with tab_missions:
-            st.markdown(f"""
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
-                <div>
-                    <h3 style="color: {'#60a5fa' if is_dark else '#1d4ed8'}; margin: 0; font-size: 1.15rem; font-weight: 800;">🌟 Discovered Societal Missions</h3>
-                    <div style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.78rem; margin-top: 2px;">
-                        Autonomous thematic clusters extracted by the AI clustering engine
-                    </div>
-                </div>
-                <span style="font-size: 0.75rem; font-weight: 700; background: {'rgba(56, 189, 248, 0.15)' if is_dark else 'rgba(37, 99, 235, 0.1)'}; color: {'#38bdf8' if is_dark else '#1d4ed8'}; padding: 3px 10px; border-radius: 20px; border: 1px solid {'rgba(56, 189, 248, 0.3)' if is_dark else 'rgba(37, 99, 235, 0.2)'};">
-                    {num_clusters} Core Missions
-                </span>
-            </div>
-            """, unsafe_allow_html=True)
+            c_header_color = '#60a5fa' if is_dark else '#1d4ed8'
+            c_sub_color = '#94a3b8' if is_dark else '#64748b'
+            c_badge_bg = 'rgba(56, 189, 248, 0.15)' if is_dark else 'rgba(37, 99, 235, 0.1)'
+            c_badge_text = '#38bdf8' if is_dark else '#1d4ed8'
+            c_badge_border = 'rgba(56, 189, 248, 0.3)' if is_dark else 'rgba(37, 99, 235, 0.2)'
+            
+            top_bar_html = f"""<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+<div>
+<h3 style="color: {c_header_color}; margin: 0; font-size: 1.15rem; font-weight: 800;">🌟 Discovered Societal Missions</h3>
+<div style="color: {c_sub_color}; font-size: 0.8rem; margin-top: 2px;">Autonomous thematic clusters discovered across crowdsourced national challenges</div>
+</div>
+<span style="font-size: 0.75rem; font-weight: 700; background: {c_badge_bg}; color: {c_badge_text}; padding: 4px 12px; border-radius: 20px; border: 1px solid {c_badge_border}; white-space: nowrap;">{num_clusters} Core Missions</span>
+</div>"""
+            st.html(top_bar_html)
 
-            cluster_cards_html = []
+            # Generate individual mission cards
+            card_items = []
             for k in range(num_clusters):
                 prof = profiles[k]
                 c_icon = prof.get('icon', '🌐')
@@ -993,80 +994,79 @@ if selected_page == "🏠 Overview & Hub":
                 c_count = int((df['Cluster_ID'] == k).sum())
                 c_pct = (c_count / len(df) * 100) if len(df) > 0 else 0
                 c_kws = [f['term'] for f in prof['top_features'][:5]]
-                kw_badges = "".join([f"<span class='keyword-pill' style='font-size: 0.72rem; padding: 2px 7px; margin-right: 4px; margin-bottom: 4px;'>{kw}</span>" for kw in c_kws])
                 
-                card_html = f"""
-                <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f8fafc'}; padding: 0.75rem 0.95rem; border-radius: 10px; border: 1px solid {'#334155' if is_dark else '#cbd5e1'}; margin-bottom: 0.6rem; transition: transform 0.2s ease;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 1.2rem;">{c_icon}</span>
-                            <span style="font-weight: 700; font-size: 0.88rem; color: {'#f8fafc' if is_dark else '#0f172a'};">{c_title}</span>
-                        </div>
-                        <span style="background: {'rgba(56, 189, 248, 0.12)' if is_dark else 'rgba(37, 99, 235, 0.08)'}; color: {'#38bdf8' if is_dark else '#1d4ed8'}; font-weight: 700; font-size: 0.74rem; padding: 2px 8px; border-radius: 6px; border: 1px solid {'rgba(56, 189, 248, 0.25)' if is_dark else 'rgba(37, 99, 235, 0.18)'};">
-                            {c_count} challenges ({c_pct:.1f}%)
-                        </span>
-                    </div>
-                    <div style="width: 100%; height: 5px; background: {'rgba(51, 65, 85, 0.4)' if is_dark else '#e2e8f0'}; border-radius: 3px; overflow: hidden; margin-bottom: 0.45rem;">
-                        <div style="width: {c_pct}%; height: 100%; background: {'linear-gradient(90deg, #38bdf8, #818cf8)' if is_dark else 'linear-gradient(90deg, #2563eb, #0284c7)'}; border-radius: 3px;"></div>
-                    </div>
-                    <div style="display: flex; flex-wrap: wrap; align-items: center;">
-                        <span style="font-size: 0.72rem; color: {'#94a3b8' if is_dark else '#64748b'}; font-weight: 600; margin-right: 6px;">Key Signals:</span>
-                        {kw_badges}
-                    </div>
-                </div>
-                """
-                cluster_cards_html.append(card_html)
+                # Colors
+                card_bg = 'rgba(15, 23, 42, 0.65)' if is_dark else '#ffffff'
+                card_border = '#334155' if is_dark else '#e2e8f0'
+                title_color = '#f8fafc' if is_dark else '#0f172a'
+                accent_bar = 'linear-gradient(90deg, #38bdf8, #818cf8)' if is_dark else 'linear-gradient(90deg, #2563eb, #0284c7)'
+                track_bg = 'rgba(51, 65, 85, 0.4)' if is_dark else '#e2e8f0'
+                pill_bg = '#1e293b' if is_dark else '#f1f5f9'
+                pill_text = '#e2e8f0' if is_dark else '#1e293b'
+                pill_border = '#334155' if is_dark else '#cbd5e1'
+                
+                pills_html = "".join([f'<span style="display: inline-block; background: {pill_bg}; color: {pill_text}; font-size: 0.72rem; font-weight: 600; padding: 2px 7px; border-radius: 6px; margin-right: 4px; margin-bottom: 3px; border: 1px solid {pill_border};">{kw}</span>' for kw in c_kws])
+                
+                card_html = f"""<div style="background: {card_bg}; padding: 12px 14px; border-radius: 10px; border: 1px solid {card_border}; margin-bottom: 10px;">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+<div style="display: flex; align-items: center; gap: 8px;">
+<span style="font-size: 1.25rem;">{c_icon}</span>
+<span style="font-weight: 700; font-size: 0.9rem; color: {title_color};">{c_title}</span>
+</div>
+<span style="background: {c_badge_bg}; color: {c_badge_text}; font-weight: 700; font-size: 0.74rem; padding: 2px 8px; border-radius: 6px; border: 1px solid {c_badge_border}; white-space: nowrap;">{c_count} challenges ({c_pct:.1f}%)</span>
+</div>
+<div style="width: 100%; height: 5px; background: {track_bg}; border-radius: 3px; overflow: hidden; margin-bottom: 7px;">
+<div style="width: {c_pct}%; height: 100%; background: {accent_bar}; border-radius: 3px;"></div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center;">
+<span style="font-size: 0.72rem; color: {c_sub_color}; font-weight: 600; margin-right: 6px;">Key Signals:</span>
+{pills_html}
+</div>
+</div>"""
+                card_items.append(card_html)
             
-            st.markdown(f"""
-            <div style="max-height: 380px; overflow-y: auto; padding-right: 4px;">
-                {''.join(cluster_cards_html)}
-            </div>
-            """, unsafe_allow_html=True)
+            missions_container_html = f"""<div style="max-height: 420px; overflow-y: auto; padding-right: 4px;">{"".join(card_items)}</div>"""
+            st.html(missions_container_html)
 
         with tab_classifier:
-            st.markdown(f"""
-            <div style="margin-bottom: 0.6rem;">
-                <h3 style="color: {'#60a5fa' if is_dark else '#1d4ed8'}; margin: 0; font-size: 1.15rem; font-weight: 800;">⚡ Live Challenge Classifier</h3>
-                <div style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.78rem; margin-top: 2px;">
-                    Test real-time thematic prediction and nearest challenge matching for any civic idea
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            c_header_color = '#60a5fa' if is_dark else '#1d4ed8'
+            c_sub_color = '#94a3b8' if is_dark else '#64748b'
             
-            sandbox_scenarios = {
-                "🛰️ Wildfire AI": "AI-powered satellite imagery and infrared sensors for early forest fire detection and rapid emergency dispatch.",
-                "🏥 Telemedicine": "Solar-powered telemedicine kiosk with AI symptom triage, diagnostic sensors, and vernacular doctor consultation.",
-                "🌾 Smart Irrigation": "IoT soil moisture and nutrient sensor network with automated drip irrigation scheduling for drought-prone farmland.",
-                "🚦 Traffic Routing": "Computer vision traffic cameras for real-time adaptive traffic light signal timing and green corridor routing for ambulances."
+            st.html(f"""<div style="margin-bottom: 10px;">
+<h3 style="color: {c_header_color}; margin: 0; font-size: 1.15rem; font-weight: 800;">⚡ Live Challenge Classifier</h3>
+<div style="color: {c_sub_color}; font-size: 0.8rem; margin-top: 2px;">Test real-time thematic prediction and nearest challenge matching for any civic idea</div>
+</div>""")
+            
+            sample_presets = {
+                "🛰️ Satellite Wildfire & Disaster Monitoring": "AI-powered satellite imagery and infrared thermal sensors for early forest fire detection and rapid emergency dispatch in mountain ranges.",
+                "🏥 Rural AI Telemedicine & Clinical Triage": "Solar-powered telemedicine kiosk with AI symptom triage, diagnostic vital sensors, and vernacular doctor consultation for remote tribal villages.",
+                "🌾 IoT Smart Crop Irrigation & Moisture Sensing": "IoT soil moisture and nutrient sensor network with automated drip irrigation scheduling and crop disease alerts for drought-prone farmland.",
+                "🚦 Urban Adaptive Traffic Light Synchronization": "Computer vision traffic cameras for real-time adaptive traffic light signal timing and green corridor routing for emergency ambulances.",
+                "✏️ Custom Statement (Type your own)": ""
             }
             
-            st.markdown(f"<div style='font-size: 0.75rem; font-weight: 700; color: {'#94a3b8' if is_dark else '#475569'}; margin-bottom: 0.3rem;'>⚡ 1-Click Test Scenarios:</div>", unsafe_allow_html=True)
-            col_sb1, col_sb2 = st.columns(2)
-            with col_sb1:
-                if st.button("🛰️ Wildfire AI", key="sb_btn_wildfire", use_container_width=True):
-                    st.session_state["sandbox_prompt_val"] = sandbox_scenarios["🛰️ Wildfire AI"]
-                    st.rerun()
-                if st.button("🌾 Smart Irrigation", key="sb_btn_irrigation", use_container_width=True):
-                    st.session_state["sandbox_prompt_val"] = sandbox_scenarios["🌾 Smart Irrigation"]
-                    st.rerun()
-            with col_sb2:
-                if st.button("🏥 Telemedicine", key="sb_btn_telemed", use_container_width=True):
-                    st.session_state["sandbox_prompt_val"] = sandbox_scenarios["🏥 Telemedicine"]
-                    st.rerun()
-                if st.button("🚦 Traffic Routing", key="sb_btn_traffic", use_container_width=True):
-                    st.session_state["sandbox_prompt_val"] = sandbox_scenarios["🚦 Traffic Routing"]
-                    st.rerun()
+            def on_scenario_select():
+                sel = st.session_state["sandbox_preset_dropdown"]
+                st.session_state["sandbox_text_area"] = sample_presets[sel]
             
-            current_prompt_val = st.session_state.get("sandbox_prompt_val", sandbox_scenarios["🛰️ Wildfire AI"])
-            user_statement = st.text_area(
-                "Enter Problem Statement:",
-                value=current_prompt_val,
-                height=70,
-                key="sandbox_user_input_area",
-                placeholder="Type or paste any problem statement...",
-                label_visibility="collapsed"
+            if "sandbox_text_area" not in st.session_state:
+                st.session_state["sandbox_text_area"] = sample_presets["🛰️ Satellite Wildfire & Disaster Monitoring"]
+            
+            st.selectbox(
+                "💡 Select an Example Problem Statement (or select Custom):",
+                options=list(sample_presets.keys()),
+                key="sandbox_preset_dropdown",
+                on_change=on_scenario_select
             )
             
+            user_statement = st.text_area(
+                "Problem Statement to Classify:",
+                key="sandbox_text_area",
+                height=75,
+                placeholder="Type or paste any problem statement..."
+            )
+            
+            # Real-time AI classification
             if user_statement and user_statement.strip():
                 clean_stmt = clean_text(user_statement, remove_domain_stopwords=remove_domain_stops)
                 if not clean_stmt.strip():
@@ -1094,7 +1094,11 @@ if selected_page == "🏠 Overview & Hub":
                 matched_kws = [t for t in cluster_top_terms if any(w in t for w in stmt_words)][:4]
                 if not matched_kws:
                     matched_kws = cluster_top_terms[:3]
-                matched_pills = "".join([f"<span class='keyword-pill' style='font-size: 0.72rem; padding: 2px 7px; margin-right: 4px; margin-bottom: 3px;'>{m}</span>" for m in matched_kws])
+                
+                pill_bg = '#1e293b' if is_dark else '#f1f5f9'
+                pill_text = '#e2e8f0' if is_dark else '#1e293b'
+                pill_border = '#334155' if is_dark else '#cbd5e1'
+                matched_pills = "".join([f'<span style="display: inline-block; background: {pill_bg}; color: {pill_text}; font-size: 0.72rem; padding: 2px 7px; margin-right: 4px; margin-bottom: 3px; border-radius: 6px; border: 1px solid {pill_border};">{m}</span>' for m in matched_kws])
                 
                 ds_dists = np.linalg.norm(X_matrix - stmt_vec, axis=1)
                 nearest_idx = np.argsort(ds_dists)[:2]
@@ -1107,7 +1111,7 @@ if selected_page == "🏠 Overview & Hub":
                 n1_org = str(nearest_1['Organization'])
                 if len(n1_org) > 35:
                     n1_org = n1_org[:32] + "..."
-                    
+                
                 n2_html = ""
                 if nearest_2 is not None:
                     n2_title = str(nearest_2['Problem Statement Title'])
@@ -1116,42 +1120,40 @@ if selected_page == "🏠 Overview & Hub":
                     n2_org = str(nearest_2['Organization'])
                     if len(n2_org) > 35:
                         n2_org = n2_org[:32] + "..."
-                    n2_html = f"""
-                    <div style="font-size: 0.76rem; color: {'#94a3b8' if is_dark else '#334155'}; margin-top: 3px;">
-                        • <b>#{nearest_2['Problem Statement ID']}</b> ({n2_org}): <i>"{n2_title}"</i>
-                    </div>
-                    """
+                    sub_item_color = '#94a3b8' if is_dark else '#334155'
+                    n2_html = f'<div style="font-size: 0.76rem; color: {sub_item_color}; margin-top: 3px;">• <b>#{nearest_2["Problem Statement ID"]}</b> ({n2_org}): <i>"{n2_title}"</i></div>'
                 
-                st.markdown(f"""
-                <div style="background: {'rgba(15, 23, 42, 0.75)' if is_dark else '#ffffff'}; border: 1.5px solid {'#38bdf8' if is_dark else '#2563eb'}; border-radius: 10px; padding: 0.85rem 1rem; margin-top: 0.5rem; box-shadow: {'0 6px 20px rgba(56, 189, 248, 0.15)' if is_dark else '0 4px 14px rgba(37, 99, 235, 0.1)'};">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
-                        <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38bdf8' if is_dark else '#2563eb'};">🎯 Assigned Thematic Cluster</span>
-                        <span style="font-size: 0.73rem; font-weight: 700; background: {'rgba(16, 185, 129, 0.15)' if is_dark else 'rgba(16, 185, 129, 0.1)'}; color: {'#34d399' if is_dark else '#059669'}; padding: 2px 8px; border-radius: 6px; border: 1px solid {'rgba(16, 185, 129, 0.3)' if is_dark else 'rgba(16, 185, 129, 0.2)'};">
-                            {pred_conf:.1f}% Confidence
-                        </span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.45rem;">
-                        <span style="font-size: 1.45rem;">{pred_icon}</span>
-                        <div>
-                            <div style="font-size: 0.95rem; font-weight: 800; color: {'#ffffff' if is_dark else '#0f172a'};">{pred_theme_title}</div>
-                            <div style="font-size: 0.74rem; color: {'#94a3b8' if is_dark else '#64748b'};">Closest centroid: Theme {pred_cluster + 1}</div>
-                        </div>
-                    </div>
-                    <div style="margin-bottom: 0.45rem;">
-                        <div style="font-size: 0.72rem; color: {'#94a3b8' if is_dark else '#64748b'}; font-weight: 600; margin-bottom: 3px;">Matched Vocabulary Signals:</div>
-                        <div style="display: flex; flex-wrap: wrap;">{matched_pills}</div>
-                    </div>
-                    <div style="background: {'rgba(30, 41, 59, 0.5)' if is_dark else '#f1f5f9'}; border-radius: 8px; padding: 0.55rem 0.75rem; border: 1px solid {'#334155' if is_dark else '#cbd5e1'};">
-                        <div style="font-size: 0.73rem; font-weight: 700; color: {'#38bdf8' if is_dark else '#1d4ed8'}; margin-bottom: 2px;">Closest Verified Submissions in Dataset:</div>
-                        <div style="font-size: 0.76rem; color: {'#cbd5e1' if is_dark else '#1e293b'};">
-                            • <b>#{nearest_1['Problem Statement ID']}</b> ({n1_org}): <i>"{n1_title}"</i>
-                        </div>
-                        {n2_html}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        st.markdown('</div>', unsafe_allow_html=True)
+                res_bg = 'rgba(15, 23, 42, 0.85)' if is_dark else '#ffffff'
+                res_border = '#38bdf8' if is_dark else '#2563eb'
+                res_shadow = '0 6px 20px rgba(56, 189, 248, 0.15)' if is_dark else '0 4px 14px rgba(37, 99, 235, 0.1)'
+                res_title_color = '#ffffff' if is_dark else '#0f172a'
+                box_inner_bg = 'rgba(30, 41, 59, 0.5)' if is_dark else '#f1f5f9'
+                box_inner_border = '#334155' if is_dark else '#cbd5e1'
+                box_inner_text = '#cbd5e1' if is_dark else '#1e293b'
+                
+                result_card_html = f"""<div style="background: {res_bg}; border: 1.5px solid {res_border}; border-radius: 10px; padding: 12px 14px; margin-top: 8px; box-shadow: {res_shadow};">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+<span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: {res_border};">🎯 Assigned Thematic Cluster</span>
+<span style="font-size: 0.73rem; font-weight: 700; background: {'rgba(16, 185, 129, 0.15)' if is_dark else 'rgba(16, 185, 129, 0.1)'}; color: {'#34d399' if is_dark else '#059669'}; padding: 2px 8px; border-radius: 6px; border: 1px solid {'rgba(16, 185, 129, 0.3)' if is_dark else 'rgba(16, 185, 129, 0.2)'};">{pred_conf:.1f}% Confidence</span>
+</div>
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+<span style="font-size: 1.45rem;">{pred_icon}</span>
+<div>
+<div style="font-size: 0.96rem; font-weight: 800; color: {res_title_color};">{pred_theme_title}</div>
+<div style="font-size: 0.74rem; color: {c_sub_color};">Closest centroid: Theme {pred_cluster + 1}</div>
+</div>
+</div>
+<div style="margin-bottom: 6px;">
+<div style="font-size: 0.72rem; color: {c_sub_color}; font-weight: 600; margin-bottom: 3px;">Matched Vocabulary Signals:</div>
+<div style="display: flex; flex-wrap: wrap;">{matched_pills}</div>
+</div>
+<div style="background: {box_inner_bg}; border-radius: 8px; padding: 8px 10px; border: 1px solid {box_inner_border};">
+<div style="font-size: 0.73rem; font-weight: 700; color: {res_border}; margin-bottom: 2px;">Closest Verified Submissions in Dataset:</div>
+<div style="font-size: 0.76rem; color: {box_inner_text};">• <b>#{nearest_1["Problem Statement ID"]}</b> ({n1_org}): <i>"{n1_title}"</i></div>
+{n2_html}
+</div>
+</div>"""
+                st.html(result_card_html)
 
     with col_ov2:
         st.markdown('<div class="graph-enlarge-container">', unsafe_allow_html=True)
