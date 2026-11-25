@@ -33,6 +33,10 @@ class TextVectorizer:
         self.feature_names = self.vectorizer.get_feature_names_out()
         return self.tfidf_matrix.toarray()
 
+    def transform(self, texts: list) -> np.ndarray:
+        """Transforms new text using already fitted TF-IDF vocabulary."""
+        return self.vectorizer.transform(texts).toarray()
+
     def get_feature_names(self):
         return self.feature_names
 

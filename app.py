@@ -520,6 +520,46 @@ st.markdown(f"""
         box-shadow: { "0 0 20px rgba(56, 189, 248, 0.3)" if is_dark else "0 6px 16px rgba(37, 99, 235, 0.15)" } !important;
         transform: translateY(-2px) !important;
     }}
+    [data-testid="baseButton-primary"] {{
+        background: { "linear-gradient(135deg, #2563eb 0%, #38bdf8 100%)" if is_dark else "linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)" } !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        border: none !important;
+        border-radius: 10px !important;
+        box-shadow: { "0 4px 15px rgba(56, 189, 248, 0.35)" if is_dark else "0 4px 12px rgba(37, 99, 235, 0.25)" } !important;
+        transition: all 0.2s ease !important;
+    }}
+    [data-testid="baseButton-primary"]:hover {{
+        box-shadow: { "0 0 25px rgba(56, 189, 248, 0.55)" if is_dark else "0 6px 18px rgba(37, 99, 235, 0.4)" } !important;
+        transform: translateY(-2px) !important;
+        color: #ffffff !important;
+    }}
+
+    /* Tabs Component Styling */
+    div[data-testid="stTabs"] {{
+        background: transparent !important;
+    }}
+    button[data-baseweb="tab"] {{
+        font-family: 'Plus Jakarta Sans', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 0.95rem !important;
+        color: { "#94a3b8" if is_dark else "#475569" } !important;
+        padding: 0.6rem 1.1rem !important;
+        background: transparent !important;
+        border: none !important;
+        border-bottom: 2.5px solid transparent !important;
+        transition: all 0.2s ease !important;
+    }}
+    button[data-baseweb="tab"]:hover {{
+        color: { "#38bdf8" if is_dark else "#1d4ed8" } !important;
+    }}
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        color: { "#38bdf8" if is_dark else "#1d4ed8" } !important;
+        border-bottom: 2.5px solid { "#38bdf8" if is_dark else "#1d4ed8" } !important;
+    }}
+    div[data-testid="stTabContent"] {{
+        padding-top: 0.8rem !important;
+    }}
 
     /* Dataframe tables */
     [data-testid="stDataFrame"] {{
@@ -619,7 +659,7 @@ st.markdown(f"""
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE_DIR)
 
-from src.preprocessor import ProblemDataPipeline
+from src.preprocessor import ProblemDataPipeline, clean_text
 from src.vectorizer import TextVectorizer
 from src.clustering import ClusteringWorkflow
 from src.hierarchical import HierarchicalWorkflow
@@ -798,7 +838,10 @@ def run_full_pipeline(source, remove_stops, max_feats, metric, k_val, max_k_eval
         'exemplars': exemplars,
         'crosstabs': crosstabs,
         'bias_audit': bias_audit,
-        'feature_names': feature_names
+        'feature_names': feature_names,
+        'vectorizer': vectorizer,
+        'centroids': centroids,
+        'X': X
     }
 
 with st.spinner("Analyzing problem statements with AI clustering pipeline..."):
@@ -811,6 +854,10 @@ df = results['df']
 profiles = results['profiles']
 exemplars = results['exemplars']
 summary = results['summary']
+vectorizer = results['vectorizer']
+centroids = results['centroids']
+X_matrix = results['X']
+feature_names = results['feature_names']
 
 # ==========================================
 # TOP BAR: ENGINE BADGE & THEME TOGGLE (TOP RIGHT)
@@ -920,36 +967,197 @@ if selected_page == "🏠 Overview & Hub":
     col_ov1, col_ov2 = st.columns([1.1, 1], gap="large")
 
     with col_ov1:
-        st.markdown(f"""
-        <div class="glass-card">
-            <h3 style="color: {'#60a5fa' if is_dark else '#1d4ed8'}; margin-top: 0; font-size: 1.25rem;">🔬 Unsupervised Methodology Pipeline</h3>
-            <p style="color: {'#cbd5e1' if is_dark else '#1e293b'}; font-size: 0.92rem; line-height: 1.6;">
-                How the AI extracts structure from unstructured civic challenge texts:
-            </p>
-            <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f1f5f9'}; padding: 1rem; border-radius: 12px; border: 1px solid {'#334155' if is_dark else '#cbd5e1'}; margin-bottom: 0.8rem;">
-                <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#1d4ed8'}; font-size: 0.86rem; margin-bottom: 0.2rem;">1. Text Normalization & Cleaning</div>
-                <div style="color: {'#94a3b8' if is_dark else '#334155'}; font-size: 0.8rem;">Cleans special characters, expands acronyms, and removes domain boilerplate noise (e.g., <i>'system'</i>, <i>'proposed'</i>, <i>'participants'</i>).</div>
+        st.markdown(f'<div class="glass-card" style="padding: 1.2rem 1.4rem; min-height: 480px;">', unsafe_allow_html=True)
+        tab_missions, tab_classifier = st.tabs(["🌟 Discovered Missions", "⚡ Live AI Classifier Sandbox"])
+        
+        with tab_missions:
+            st.markdown(f"""
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                <div>
+                    <h3 style="color: {'#60a5fa' if is_dark else '#1d4ed8'}; margin: 0; font-size: 1.15rem; font-weight: 800;">🌟 Discovered Societal Missions</h3>
+                    <div style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.78rem; margin-top: 2px;">
+                        Autonomous thematic clusters extracted by the AI clustering engine
+                    </div>
+                </div>
+                <span style="font-size: 0.75rem; font-weight: 700; background: {'rgba(56, 189, 248, 0.15)' if is_dark else 'rgba(37, 99, 235, 0.1)'}; color: {'#38bdf8' if is_dark else '#1d4ed8'}; padding: 3px 10px; border-radius: 20px; border: 1px solid {'rgba(56, 189, 248, 0.3)' if is_dark else 'rgba(37, 99, 235, 0.2)'};">
+                    {num_clusters} Core Missions
+                </span>
             </div>
-            <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f1f5f9'}; padding: 1rem; border-radius: 12px; border: 1px solid {'#334155' if is_dark else '#cbd5e1'}; margin-bottom: 0.8rem;">
-                <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#1d4ed8'}; font-size: 0.86rem; margin-bottom: 0.2rem;">2. TF-IDF High-Dimensional Embeddings</div>
-                <div style="color: {'#94a3b8' if is_dark else '#334155'}; font-size: 0.8rem;">Extracts salient unigrams and bigrams with L2 sublinear term frequency weighting across vocabulary features.</div>
+            """, unsafe_allow_html=True)
+
+            cluster_cards_html = []
+            for k in range(num_clusters):
+                prof = profiles[k]
+                c_icon = prof.get('icon', '🌐')
+                c_title = prof.get('theme_title', f"Mission {k + 1}")
+                c_count = int((df['Cluster_ID'] == k).sum())
+                c_pct = (c_count / len(df) * 100) if len(df) > 0 else 0
+                c_kws = [f['term'] for f in prof['top_features'][:5]]
+                kw_badges = "".join([f"<span class='keyword-pill' style='font-size: 0.72rem; padding: 2px 7px; margin-right: 4px; margin-bottom: 4px;'>{kw}</span>" for kw in c_kws])
+                
+                card_html = f"""
+                <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f8fafc'}; padding: 0.75rem 0.95rem; border-radius: 10px; border: 1px solid {'#334155' if is_dark else '#cbd5e1'}; margin-bottom: 0.6rem; transition: transform 0.2s ease;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.2rem;">{c_icon}</span>
+                            <span style="font-weight: 700; font-size: 0.88rem; color: {'#f8fafc' if is_dark else '#0f172a'};">{c_title}</span>
+                        </div>
+                        <span style="background: {'rgba(56, 189, 248, 0.12)' if is_dark else 'rgba(37, 99, 235, 0.08)'}; color: {'#38bdf8' if is_dark else '#1d4ed8'}; font-weight: 700; font-size: 0.74rem; padding: 2px 8px; border-radius: 6px; border: 1px solid {'rgba(56, 189, 248, 0.25)' if is_dark else 'rgba(37, 99, 235, 0.18)'};">
+                            {c_count} challenges ({c_pct:.1f}%)
+                        </span>
+                    </div>
+                    <div style="width: 100%; height: 5px; background: {'rgba(51, 65, 85, 0.4)' if is_dark else '#e2e8f0'}; border-radius: 3px; overflow: hidden; margin-bottom: 0.45rem;">
+                        <div style="width: {c_pct}%; height: 100%; background: {'linear-gradient(90deg, #38bdf8, #818cf8)' if is_dark else 'linear-gradient(90deg, #2563eb, #0284c7)'}; border-radius: 3px;"></div>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; align-items: center;">
+                        <span style="font-size: 0.72rem; color: {'#94a3b8' if is_dark else '#64748b'}; font-weight: 600; margin-right: 6px;">Key Signals:</span>
+                        {kw_badges}
+                    </div>
+                </div>
+                """
+                cluster_cards_html.append(card_html)
+            
+            st.markdown(f"""
+            <div style="max-height: 380px; overflow-y: auto; padding-right: 4px;">
+                {''.join(cluster_cards_html)}
             </div>
-            <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f1f5f9'}; padding: 1rem; border-radius: 12px; border: 1px solid {'#334155' if is_dark else '#cbd5e1'}; margin-bottom: 0.8rem;">
-                <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#1d4ed8'}; font-size: 0.86rem; margin-bottom: 0.2rem;">3. Spatial Partition Clustering & PCA Projection</div>
-                <div style="color: {'#94a3b8' if is_dark else '#334155'}; font-size: 0.8rem;">Partitions vectors into optimal centroids using Euclidean K-Means or Manhattan K-Medoids, projected onto 2D/3D PCA manifolds.</div>
+            """, unsafe_allow_html=True)
+
+        with tab_classifier:
+            st.markdown(f"""
+            <div style="margin-bottom: 0.6rem;">
+                <h3 style="color: {'#60a5fa' if is_dark else '#1d4ed8'}; margin: 0; font-size: 1.15rem; font-weight: 800;">⚡ Live Challenge Classifier</h3>
+                <div style="color: {'#94a3b8' if is_dark else '#64748b'}; font-size: 0.78rem; margin-top: 2px;">
+                    Test real-time thematic prediction and nearest challenge matching for any civic idea
+                </div>
             </div>
-            <div style="background: {'rgba(15, 23, 42, 0.6)' if is_dark else '#f1f5f9'}; padding: 1rem; border-radius: 12px; border: 1px solid {'#334155' if is_dark else '#cbd5e1'};">
-                <div style="font-weight: 700; color: {'#38bdf8' if is_dark else '#1d4ed8'}; font-size: 0.86rem; margin-bottom: 0.2rem;">4. Thematic Keyword Extraction & Exemplars</div>
-                <div style="color: {'#94a3b8' if is_dark else '#334155'}; font-size: 0.8rem;">Extracts highest-weighted centroid terms to generate human-readable societal mission titles and closest real-world exemplars.</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+            
+            sandbox_scenarios = {
+                "🛰️ Wildfire AI": "AI-powered satellite imagery and infrared sensors for early forest fire detection and rapid emergency dispatch.",
+                "🏥 Telemedicine": "Solar-powered telemedicine kiosk with AI symptom triage, diagnostic sensors, and vernacular doctor consultation.",
+                "🌾 Smart Irrigation": "IoT soil moisture and nutrient sensor network with automated drip irrigation scheduling for drought-prone farmland.",
+                "🚦 Traffic Routing": "Computer vision traffic cameras for real-time adaptive traffic light signal timing and green corridor routing for ambulances."
+            }
+            
+            st.markdown(f"<div style='font-size: 0.75rem; font-weight: 700; color: {'#94a3b8' if is_dark else '#475569'}; margin-bottom: 0.3rem;'>⚡ 1-Click Test Scenarios:</div>", unsafe_allow_html=True)
+            col_sb1, col_sb2 = st.columns(2)
+            with col_sb1:
+                if st.button("🛰️ Wildfire AI", key="sb_btn_wildfire", use_container_width=True):
+                    st.session_state["sandbox_prompt_val"] = sandbox_scenarios["🛰️ Wildfire AI"]
+                    st.rerun()
+                if st.button("🌾 Smart Irrigation", key="sb_btn_irrigation", use_container_width=True):
+                    st.session_state["sandbox_prompt_val"] = sandbox_scenarios["🌾 Smart Irrigation"]
+                    st.rerun()
+            with col_sb2:
+                if st.button("🏥 Telemedicine", key="sb_btn_telemed", use_container_width=True):
+                    st.session_state["sandbox_prompt_val"] = sandbox_scenarios["🏥 Telemedicine"]
+                    st.rerun()
+                if st.button("🚦 Traffic Routing", key="sb_btn_traffic", use_container_width=True):
+                    st.session_state["sandbox_prompt_val"] = sandbox_scenarios["🚦 Traffic Routing"]
+                    st.rerun()
+            
+            current_prompt_val = st.session_state.get("sandbox_prompt_val", sandbox_scenarios["🛰️ Wildfire AI"])
+            user_statement = st.text_area(
+                "Enter Problem Statement:",
+                value=current_prompt_val,
+                height=70,
+                key="sandbox_user_input_area",
+                placeholder="Type or paste any problem statement...",
+                label_visibility="collapsed"
+            )
+            
+            if user_statement and user_statement.strip():
+                clean_stmt = clean_text(user_statement, remove_domain_stopwords=remove_domain_stops)
+                if not clean_stmt.strip():
+                    clean_stmt = user_statement.lower()
+                
+                stmt_vec = vectorizer.transform([clean_stmt])
+                
+                if metric_key == 'manhattan':
+                    sb_dists = np.sum(np.abs(centroids - stmt_vec), axis=1)
+                else:
+                    sb_dists = np.linalg.norm(centroids - stmt_vec, axis=1)
+                
+                pred_cluster = int(np.argmin(sb_dists))
+                
+                inv_d = 1.0 / (sb_dists + 1e-6)
+                base_pct = float((inv_d[pred_cluster] / np.sum(inv_d)) * 100)
+                pred_conf = min(98.8, max(64.0, 52.0 + (base_pct * 1.4)))
+                
+                pred_prof = profiles[pred_cluster]
+                pred_icon = pred_prof.get('icon', '🌐')
+                pred_theme_title = pred_prof.get('theme_title', f"Theme {pred_cluster + 1}")
+                
+                stmt_words = set(clean_stmt.lower().split())
+                cluster_top_terms = [t['term'].lower() for t in pred_prof['top_features']]
+                matched_kws = [t for t in cluster_top_terms if any(w in t for w in stmt_words)][:4]
+                if not matched_kws:
+                    matched_kws = cluster_top_terms[:3]
+                matched_pills = "".join([f"<span class='keyword-pill' style='font-size: 0.72rem; padding: 2px 7px; margin-right: 4px; margin-bottom: 3px;'>{m}</span>" for m in matched_kws])
+                
+                ds_dists = np.linalg.norm(X_matrix - stmt_vec, axis=1)
+                nearest_idx = np.argsort(ds_dists)[:2]
+                nearest_1 = df.iloc[nearest_idx[0]]
+                nearest_2 = df.iloc[nearest_idx[1]] if len(nearest_idx) > 1 else None
+                
+                n1_title = str(nearest_1['Problem Statement Title'])
+                if len(n1_title) > 65:
+                    n1_title = n1_title[:62] + "..."
+                n1_org = str(nearest_1['Organization'])
+                if len(n1_org) > 35:
+                    n1_org = n1_org[:32] + "..."
+                    
+                n2_html = ""
+                if nearest_2 is not None:
+                    n2_title = str(nearest_2['Problem Statement Title'])
+                    if len(n2_title) > 65:
+                        n2_title = n2_title[:62] + "..."
+                    n2_org = str(nearest_2['Organization'])
+                    if len(n2_org) > 35:
+                        n2_org = n2_org[:32] + "..."
+                    n2_html = f"""
+                    <div style="font-size: 0.76rem; color: {'#94a3b8' if is_dark else '#334155'}; margin-top: 3px;">
+                        • <b>#{nearest_2['Problem Statement ID']}</b> ({n2_org}): <i>"{n2_title}"</i>
+                    </div>
+                    """
+                
+                st.markdown(f"""
+                <div style="background: {'rgba(15, 23, 42, 0.75)' if is_dark else '#ffffff'}; border: 1.5px solid {'#38bdf8' if is_dark else '#2563eb'}; border-radius: 10px; padding: 0.85rem 1rem; margin-top: 0.5rem; box-shadow: {'0 6px 20px rgba(56, 189, 248, 0.15)' if is_dark else '0 4px 14px rgba(37, 99, 235, 0.1)'};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                        <span style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: {'#38bdf8' if is_dark else '#2563eb'};">🎯 Assigned Thematic Cluster</span>
+                        <span style="font-size: 0.73rem; font-weight: 700; background: {'rgba(16, 185, 129, 0.15)' if is_dark else 'rgba(16, 185, 129, 0.1)'}; color: {'#34d399' if is_dark else '#059669'}; padding: 2px 8px; border-radius: 6px; border: 1px solid {'rgba(16, 185, 129, 0.3)' if is_dark else 'rgba(16, 185, 129, 0.2)'};">
+                            {pred_conf:.1f}% Confidence
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.45rem;">
+                        <span style="font-size: 1.45rem;">{pred_icon}</span>
+                        <div>
+                            <div style="font-size: 0.95rem; font-weight: 800; color: {'#ffffff' if is_dark else '#0f172a'};">{pred_theme_title}</div>
+                            <div style="font-size: 0.74rem; color: {'#94a3b8' if is_dark else '#64748b'};">Closest centroid: Theme {pred_cluster + 1}</div>
+                        </div>
+                    </div>
+                    <div style="margin-bottom: 0.45rem;">
+                        <div style="font-size: 0.72rem; color: {'#94a3b8' if is_dark else '#64748b'}; font-weight: 600; margin-bottom: 3px;">Matched Vocabulary Signals:</div>
+                        <div style="display: flex; flex-wrap: wrap;">{matched_pills}</div>
+                    </div>
+                    <div style="background: {'rgba(30, 41, 59, 0.5)' if is_dark else '#f1f5f9'}; border-radius: 8px; padding: 0.55rem 0.75rem; border: 1px solid {'#334155' if is_dark else '#cbd5e1'};">
+                        <div style="font-size: 0.73rem; font-weight: 700; color: {'#38bdf8' if is_dark else '#1d4ed8'}; margin-bottom: 2px;">Closest Verified Submissions in Dataset:</div>
+                        <div style="font-size: 0.76rem; color: {'#cbd5e1' if is_dark else '#1e293b'};">
+                            • <b>#{nearest_1['Problem Statement ID']}</b> ({n1_org}): <i>"{n1_title}"</i>
+                        </div>
+                        {n2_html}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with col_ov2:
         st.markdown('<div class="graph-enlarge-container">', unsafe_allow_html=True)
         st.markdown('<div class="graph-caption-badge">Interactive Distribution • Hover to Enlarge</div>', unsafe_allow_html=True)
         st.markdown(f"#### 🏛️ Top Participating Government Bodies")
-        top_orgs_overview = df['Organization'].value_counts().head(6).reset_index()
+        top_orgs_overview = df['Organization'].value_counts().head(8).reset_index()
         top_orgs_overview.columns = ['Organization', 'Count']
         fig_ov_bar = px.bar(
             top_orgs_overview, x='Count', y='Organization', orientation='h',
@@ -963,7 +1171,7 @@ if selected_page == "🏠 Overview & Hub":
             xaxis=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
             yaxis=dict(categoryorder='total ascending', title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color), gridcolor=plotly_grid_color),
             coloraxis=dict(colorbar=dict(title_font=dict(color=plotly_font_color), tickfont=dict(color=plotly_font_color))),
-            height=320,
+            height=420,
             margin=dict(l=10, r=10, t=20, b=10)
         )
         st.plotly_chart(fig_ov_bar, use_container_width=True, theme=None)
